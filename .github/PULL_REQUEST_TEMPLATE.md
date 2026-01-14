@@ -1,14 +1,25 @@
-## Description
-Summary of the changes in this PR and the motivation.
+## 何をしたか（1行で）
+<!-- 例: Create HomeScreen component -->
 
-## Related issue
-Link to related issue or `n/a`.
+## どの画面/機能に関するものか
+<!-- Figma の画面名やコンポーネント名を記入 -->
 
-## How has this been tested?
-Describe the tests that you ran to verify your changes. Provide instructions so we can reproduce.
+## 動作確認（自分でやるチェック）
+- [ ] ローカルでビルドが通った
+- [ ] 主要な画面が表示される（スクリーンショットを添付）
+- [ ] 型エラー / lint エラーがない
 
-## Checklist
-- [ ] My code follows the repository style guidelines
-- [ ] I have performed a self-review of my code
-- [ ] I have commented my code, particularly in hard-to-understand areas
-- [ ] I have updated the documentation where applicable
+## CI（ロボット）について
+- CIが通ることを確認してください（自動でチェックされます）。失敗している場合はログを添付してください。
+
+## レビューしてほしい点（チェック）
+- [ ] 実装方針（コメントください）
+- [ ] UI（見た目）
+- [ ] 動作（操作手順）
+- [ ] その他（ここに書く）
+
+## スクリーンショット / GIF
+<!-- 画面の画像や操作の短い動画をここに貼る -->
+
+## 補足（必要なら）
+<!-- 例: 既知の制限、今後やること、関連チケット番号など -->
