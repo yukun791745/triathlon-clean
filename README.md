@@ -1,3 +1,7 @@
+[![CI](https://github.com/yukun791745/triathlon-clean/actions/workflows/ci.yml/badge.svg)](https://github.com/yukun791745/triathlon-clean/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
+<!-- existing README content follows -->
 # triathlon-clean
 
 軽量な Expo (React Native) のスキャフォールドです。  
