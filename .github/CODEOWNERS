@@ -1,1 +1,6 @@
+# Default owner for all files
 * @yukun791745
+
+# Optionally assign ownership for certain paths
+#/.github/ @yukun791745
+#docs/ @yukun791745
