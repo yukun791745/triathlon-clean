@@ -1,28 +1,45 @@
 import React from "react";
-import { SafeAreaView, View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { SafeAreaView, View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
 
 export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.title}>Home</Text>
-        <Text style={styles.subtitle}>ここに Figma の Home 画面に似た要素を置きます</Text>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <Text style={styles.header}>Home</Text>
 
-        <TouchableOpacity style={styles.button} onPress={() => { /* デモ用の空ハンドラ */ }}>
-          <Text style={styles.buttonText}>ボタン（タップ）</Text>
-        </TouchableOpacity>
-      </View>
-      <Text style={styles.helper}>この画面はテンプレートです。スクショを PR に添付して先生に見せてね。</Text>
+        <View style={styles.hero}>
+          <Text style={styles.heroTitle}>ようこそ</Text>
+          <Text style={styles.heroSubtitle}>ここに Figma の Home に合わせた主要情報を表示します</Text>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>サンプルカード</Text>
+          <Text style={styles.cardBody}>説明文や要約をここに入れます。ボタンでアクションを試せます。</Text>
+          <TouchableOpacity style={styles.button} onPress={() => { /* デモ用 */ }}>
+            <Text style={styles.buttonText}>主要アクション</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.tip}>
+          <Text style={styles.tipText}>下書き: デザイン要素や余白、色は後で Figma に合わせて調整します</Text>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#fff", padding: 16 },
-  card: { width: "100%", maxWidth: 420, padding: 20, backgroundColor: "#f7f8fa", borderRadius: 12, alignItems: "center" },
-  title: { fontSize: 20, fontWeight: "700", marginBottom: 8 },
-  subtitle: { fontSize: 14, color: "#444", marginBottom: 16, textAlign: "center" },
-  button: { backgroundColor: "#246BFD", paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 },
+  container: { flex: 1, backgroundColor: "#ffffff" },
+  scroll: { padding: 20, alignItems: "center" },
+  header: { fontSize: 24, fontWeight: "700", alignSelf: "flex-start", marginBottom: 12 },
+  hero: { width: "100%", padding: 16, backgroundColor: "#f0f4ff", borderRadius: 12, marginBottom: 16 },
+  heroTitle: { fontSize: 20, fontWeight: "700", marginBottom: 4 },
+  heroSubtitle: { fontSize: 14, color: "#444" },
+  card: { width: "100%", padding: 16, backgroundColor: "#f7f8fa", borderRadius: 12, marginBottom: 12 },
+  cardTitle: { fontSize: 16, fontWeight: "700", marginBottom: 6 },
+  cardBody: { fontSize: 14, color: "#333", marginBottom: 12 },
+  button: { alignSelf: "flex-start", backgroundColor: "#246BFD", paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
   buttonText: { color: "#fff", fontWeight: "600" },
-  helper: { marginTop: 16, color: "#888", fontSize: 12 },
+  tip: { marginTop: 8 },
+  tipText: { fontSize: 12, color: "#666" },
 });
