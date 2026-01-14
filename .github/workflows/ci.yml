@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: TypeCheck / Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run build or type-check
+        run: |
+          # If package.json defines a "build" script, run it.
+          # Otherwise fall back to TypeScript type check.
+          if npm run | grep -q " build"; then
+            echo "Running npm run build"
+            npm run build
+          else
+            echo "No build script found — running tsc --noEmit"
+            npx -y tsc --noEmit
+          fi
