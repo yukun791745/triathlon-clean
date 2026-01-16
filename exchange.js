@@ -1,6 +1,7 @@
-// 簡単なNodeスクリプト: node >=18 の fetch を想定
-// 実行方法の例（シェル）:
-// CLIENT_ID=171117 CLIENT_SECRET='ここにStravaのClientSecret' CODE='ここにブラウザで得たcode' REDIRECT_URI='http://localhost/' node exchange.js
+// exchange.js
+// Node (v18+) の fetch を使って Strava の token 交換を行う短いスクリプト.
+// 実行例:
+// CLIENT_ID=171117 CLIENT_SECRET='ここにClientSecret' CODE='ここにcode' REDIRECT_URI='http://localhost/' node exchange.js
 
 const clientId = process.env.CLIENT_ID;
 const clientSecret = process.env.CLIENT_SECRET;
