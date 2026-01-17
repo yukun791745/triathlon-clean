@@ -29,6 +29,16 @@ export default function ActivitiesScreen({ onSignOut }: { onSignOut?: () => void
       console.log("[Activities] status", res.status, res.statusText);
       const text = await res.text();
       console.log("[Activities] raw response:", text);
+      + const text = await res.text();
+      + console.log("[Activities] raw_len:", text?.length);
+      + console.log("[Activities] raw_start:", text?.slice(0,1000));
+      + try {
+      +   const tmp = JSON.parse(text);
+      +   console.log("[Activities] IN-APP PARSED_TYPE:", Array.isArray(tmp)?'array':'object', "length:", Array.isArray(tmp)?tmp.length:'-');
+      + } catch (e) {
+      +   console.error("[Activities] IN-APP JSON parse error:", e);
+      +   console.log("[Activities] raw_start_on_error:", text?.slice(0,2000));
+      + }
 
       let parsed: any;
       try {
