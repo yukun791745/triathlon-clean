@@ -1,132 +1,206 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, Button, FlatList, ActivityIndicator, StyleSheet } from "react-native";
-import { supabase } from "../lib/supabaseClient";
+import React, { useEffect, useState, useCallback } from "react";
+import {
+  SafeAreaView,
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
 
-/**
- * Minimal ActivitiesScreen (TSX)
- * - Accepts API responses that are either:
- *   - top-level array: [ { ... }, ... ]
- *   - or wrapped: { activities: [ ... ] }
- */
+type ActivityItem = {
+  id: number;
+  name?: string;
+  start_date?: string;
+};
 
-const GET_ACTIVITIES_BASE =
-  (typeof process !== "undefined" && (process.env as any).EXPO_PUBLIC_GET_ACTIVITIES_URL) ||
-  "https://storied-donut-fd8311.netlify.app/.netlify/functions/get-activities";
+type Props = {
+  // 親コンポーネント（例: App.tsx）がサインアウトを管理する場合はここに関数を渡す
+  onSignOut?: () => void;
+};
 
-export default function ActivitiesScreen({ onSignOut }: { onSignOut?: () => void }) {
-  const [activities, setActivities] = useState<any[] | null>(null);
+export default function ActivitiesScreen({ onSignOut }: Props) {
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  const userId = "34646703";
+  const perPage = 30;
+  const url = `https://storied-donut-fd8311.netlify.app/.netlify/functions/get-activities?userId=${userId}&per_page=${perPage}`;
+  const navigation = useNavigation();
 
-  async function loadActivities() {
+  const fetchActivities = useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
-      const userId = "34646703"; // 必要なら session から取得するように変更してください
-      const url = `${GET_ACTIVITIES_BASE}?userId=${encodeURIComponent(userId)}&per_page=30`;
-      console.log("[Activities] fetch ->", url);
-      const res = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
-      console.log("[Activities] status", res.status, res.statusText);
+      const res = await fetch(url);
       const text = await res.text();
-      console.log("[Activities] raw response:", text);
-      + const text = await res.text();
-      + console.log("[Activities] raw_len:", text?.length);
-      + console.log("[Activities] raw_start:", text?.slice(0,1000));
-      + try {
-      +   const tmp = JSON.parse(text);
-      +   console.log("[Activities] IN-APP PARSED_TYPE:", Array.isArray(tmp)?'array':'object', "length:", Array.isArray(tmp)?tmp.length:'-');
-      + } catch (e) {
-      +   console.error("[Activities] IN-APP JSON parse error:", e);
-      +   console.log("[Activities] raw_start_on_error:", text?.slice(0,2000));
-      + }
 
-      let parsed: any;
-      try {
-        parsed = JSON.parse(text);
-      } catch (e) {
-        console.error("[Activities] JSON parse error:", e);
-        setError("Invalid JSON response from server");
-        setActivities([]);
-        return;
+      if (__DEV__) {
+        console.log("[Activities] fetch ->", url);
+        console.log("[Activities] status", res.status, res.statusText);
+        console.log("[Activities] raw response head:", (text || "").slice(0, 400));
       }
 
-      // Handle both: top-level array OR { activities: [...] } wrapper
-      let arr: any[] = [];
-      if (Array.isArray(parsed)) {
-        arr = parsed;
-      } else if (Array.isArray(parsed?.activities)) {
-        arr = parsed.activities;
-      } else if (parsed?.activities) {
-        arr = [parsed.activities];
-      } else {
+      let arr: ActivityItem[] = [];
+      try {
+        arr = JSON.parse(text);
+      } catch (parseErr) {
         arr = [];
+        if (__DEV__) {
+          console.log("[Activities] JSON parse error:", parseErr);
+        }
       }
 
       setActivities(arr);
-      console.log("[Activities] parsed length:", arr.length);
+      if (__DEV__) {
+        console.log("[Activities] parsed length:", arr.length);
+      }
     } catch (err) {
-      console.error("[Activities] fetch error:", err);
-      setError(String(err));
+      if (__DEV__) {
+        console.log("[Activities] fetch error:", err);
+      }
       setActivities([]);
     } finally {
       setLoading(false);
     }
-  }
+  }, [url]);
 
   useEffect(() => {
-    loadActivities();
-  }, []);
+    fetchActivities();
+  }, [fetchActivities]);
 
-  async function signOut() {
-    await supabase.auth.signOut();
-    if (onSignOut) onSignOut();
-  }
+  // 最小修正: 発火確認ログ + 親の onSignOut をあれば呼ぶ、なければ navigation.reset でフォールバック
+  const handleSignOut = useCallback(() => {
+    if (__DEV__) console.log("[Activities] signOut pressed");
+    if (typeof onSignOut === "function") {
+      if (__DEV__) console.log("[Activities] calling parent onSignOut()");
+      onSignOut();
+      return;
+    }
 
-  function renderItem({ item }: { item: any }) {
-    const name = item.name || item.type || "Activity";
-    const start = item.start_date || item.start_date_local || item.start || "";
-    return (
-      <View style={styles.item}>
-        <Text style={styles.title}>{name}</Text>
-        {start ? <Text style={styles.sub}>{start}</Text> : null}
-      </View>
-    );
-  }
+    // フォールバック: navigation リセットして SignIn に戻す（プロジェクトに合わせてルート名を変更してください）
+    try {
+      if (__DEV__) console.log("[Activities] performing navigation.reset to SignIn (fallback)");
+      // @ts-ignore - navigation.reset typing can differ depending on navigator setup
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "SignIn" }],
+      });
+    } catch (err) {
+      if (__DEV__) console.log("[Activities] navigation.reset failed:", err);
+    }
+  }, [navigation, onSignOut]);
+
+  const renderItem = ({ item }: { item: ActivityItem }) => (
+    <View style={styles.item}>
+      <Text style={styles.title}>{item.name ?? "—"}</Text>
+      <Text style={styles.sub}>{item.start_date ?? ""}</Text>
+    </View>
+  );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Activities</Text>
+    <SafeAreaView style={styles.container}>
       <View style={styles.card}>
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          <Text style={{ fontWeight: "700" }}>{activities ? `${activities.length} activities` : "Activities"}</Text>
-          <View style={{ flexDirection: "row" }}>
-            <Button title="Refresh" onPress={loadActivities} />
-            <View style={{ width: 8 }} />
-            <Button title="Sign Out" onPress={signOut} />
-          </View>
+        <Text style={styles.header}>Activities</Text>
+
+        <View style={styles.controls}>
+          <Text style={styles.count}>{activities.length} activities</Text>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => {
+              fetchActivities();
+            }}
+          >
+            <Text style={styles.buttonText}>REFRESH</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.button, styles.signout]}
+            onPress={handleSignOut}
+          >
+            <Text style={styles.buttonText}>SIGN OUT</Text>
+          </TouchableOpacity>
         </View>
 
-        <View style={{ height: 12 }} />
-
         {loading ? (
-          <ActivityIndicator />
-        ) : error ? (
-          <Text style={{ color: "red" }}>Error: {error}</Text>
-        ) : activities && activities.length > 0 ? (
-          <FlatList data={activities} keyExtractor={(it, i) => (it.id ? String(it.id) : String(i))} renderItem={renderItem} />
+          <ActivityIndicator style={{ marginTop: 20 }} />
         ) : (
-          <Text>No activities found.</Text>
+          <FlatList
+            data={activities}
+            keyExtractor={(i) => String(i.id)}
+            renderItem={renderItem}
+            ItemSeparatorComponent={() => <View style={styles.sep} />}
+            style={{ width: "100%" }}
+          />
         )}
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16 },
-  header: { fontSize: 20, fontWeight: "700" },
-  card: { marginTop: 12, backgroundColor: "#fff", padding: 12, borderRadius: 12, minHeight: 200 },
-  item: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#eee" },
-  title: { fontSize: 16, fontWeight: "600" },
-  sub: { color: "#666", marginTop: 2 },
+  container: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  card: {
+    width: 360,
+    maxWidth: "90%",
+    backgroundColor: "#fff",
+    padding: 16,
+    borderRadius: 3,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+  },
+  header: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  controls: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  count: {
+    marginRight: 8,
+    fontSize: 12,
+    color: "#333",
+  },
+  button: {
+    backgroundColor: "#0b84ff",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  signout: {
+    backgroundColor: "#2b9cff",
+  },
+  buttonText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  item: {
+    paddingVertical: 10,
+  },
+  title: {
+    fontWeight: "700",
+  },
+  sub: {
+    color: "#666",
+    marginTop: 2,
+    fontSize: 12,
+  },
+  sep: {
+    height: 1,
+    backgroundColor: "#eee",
+    marginVertical: 8,
+  },
 });
