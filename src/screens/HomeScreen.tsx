@@ -26,21 +26,12 @@ export default function HomeScreen({ athleteId, onSignOut }: Props) {
     try {
       const userId = athleteId || "34646703";
       const url = `${GET_ACTIVITIES_BASE}?userId=${encodeURIComponent(userId)}&per_page=30`;
-<<<<<<< HEAD
-      console.log("[HomeScreen] fetching activities from:", url);
-     const res = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
-const text = await res.text();
-
-console.log("[HomeScreen] status:", res.status);
-console.log("[HomeScreen] first200:", text.slice(0, 200));
-=======
       if (__DEV__) console.log("[HomeScreen] fetching:", url);
 
       const res = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
       const text = await res.text();
 
       let json: any = null;
->>>>>>> ace28ae (Fix screens and navigation props; update HomeScreen activities fetch)
       try {
         json = JSON.parse(text);
       } catch (e) {
@@ -49,7 +40,6 @@ console.log("[HomeScreen] first200:", text.slice(0, 200));
         return;
       }
 
-      // expected { activities: [...] } but tolerate other shapes
       const list = Array.isArray(json?.activities)
         ? json.activities
         : Array.isArray(json)
@@ -93,7 +83,7 @@ console.log("[HomeScreen] first200:", text.slice(0, 200));
           <View style={{ flexDirection: "row", gap: 8 }}>
             <Button title="Refresh" onPress={loadActivities} />
             <View style={{ width: 8 }} />
-            <Button title="Sign Out" onPress={onSignOut} />
+            <Button title="Sign Out" onPress={onSignOut || (() => {})} />
           </View>
         </View>
 
@@ -104,7 +94,11 @@ console.log("[HomeScreen] first200:", text.slice(0, 200));
         ) : error ? (
           <Text style={{ color: "red" }}>Error: {error}</Text>
         ) : activities && activities.length > 0 ? (
-          <FlatList data={activities} keyExtractor={(it, i) => (it.id ? String(it.id) : String(i))} renderItem={renderItem} />
+          <FlatList
+            data={activities}
+            keyExtractor={(it, i) => (it.id ? String(it.id) : String(i))}
+            renderItem={renderItem}
+          />
         ) : (
           <Text>No activities found.</Text>
         )}
