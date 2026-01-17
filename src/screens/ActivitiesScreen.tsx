@@ -4,9 +4,9 @@ import { supabase } from "../lib/supabaseClient";
 
 /**
  * Minimal ActivitiesScreen (TSX)
- * - Calls the Netlify function get-activities (public URL hardcoded for quick check)
- * - Shows loading / error / flat list (name + date)
- * - Does NOT depend on react-query or other helpers
+ * - Accepts API responses that are either:
+ *   - top-level array: [ { ... }, ... ]
+ *   - or wrapped: { activities: [ ... ] }
  */
 
 const GET_ACTIVITIES_BASE =
@@ -22,23 +22,38 @@ export default function ActivitiesScreen({ onSignOut }: { onSignOut?: () => void
     setLoading(true);
     setError(null);
     try {
-      const userId = "34646703"; // 既に確認済みの userId。将来 session から動的に取得可
+      const userId = "34646703"; // 必要なら session から取得するように変更してください
       const url = `${GET_ACTIVITIES_BASE}?userId=${encodeURIComponent(userId)}&per_page=30`;
       console.log("[Activities] fetch ->", url);
       const res = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
       console.log("[Activities] status", res.status, res.statusText);
       const text = await res.text();
+      console.log("[Activities] raw response:", text);
+
+      let parsed: any;
       try {
-        const json = JSON.parse(text);
-        if (Array.isArray(json.activities)) setActivities(json.activities);
-        else if (json.activities) setActivities([json.activities]);
-        else setActivities([]);
-        console.log("[Activities] parsed length:", Array.isArray(json.activities) ? json.activities.length : 0);
+        parsed = JSON.parse(text);
       } catch (e) {
-        console.error("[Activities] JSON parse error:", e, "raw:", text);
+        console.error("[Activities] JSON parse error:", e);
         setError("Invalid JSON response from server");
         setActivities([]);
+        return;
       }
+
+      // Handle both: top-level array OR { activities: [...] } wrapper
+      let arr: any[] = [];
+      if (Array.isArray(parsed)) {
+        arr = parsed;
+      } else if (Array.isArray(parsed?.activities)) {
+        arr = parsed.activities;
+      } else if (parsed?.activities) {
+        arr = [parsed.activities];
+      } else {
+        arr = [];
+      }
+
+      setActivities(arr);
+      console.log("[Activities] parsed length:", arr.length);
     } catch (err) {
       console.error("[Activities] fetch error:", err);
       setError(String(err));
