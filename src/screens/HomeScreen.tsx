@@ -53,10 +53,24 @@ export default function HomeScreen({ onSignOut }: { onSignOut?: () => void }) {
     loadActivities();
   }, []);
 
-  async function signOut() {
-    await supabase.auth.signOut();
-    if (onSignOut) onSignOut();
+async function signOut() {
+  try {
+    console.log("[HomeScreen] Sign Out pressed");
+
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("[HomeScreen] supabase.signOut error:", error);
+      setError(`Sign out failed: ${error.message}`);
+      return;
+    }
+
+    console.log("[HomeScreen] supabase.signOut success");
+    onSignOut?.(); // App.tsx の state を false に
+  } catch (e) {
+    console.error("[HomeScreen] signOut exception:", e);
+    setError(`Sign out exception: ${String(e)}`);
   }
+}
 
   function renderItem({ item }: { item: any }) {
     // Try to show common Strava activity fields if present
