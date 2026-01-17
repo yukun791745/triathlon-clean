@@ -29,9 +29,11 @@ export default function HomeScreen({ onSignOut }: { onSignOut?: () => void }) {
       const userId = "34646703";
       const url = `${GET_ACTIVITIES_BASE}?userId=${encodeURIComponent(userId)}&per_page=30`;
       console.log("[HomeScreen] fetching activities from:", url);
-      const res = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
-      console.log("[HomeScreen] status:", res.status, res.statusText);
-      const text = await res.text();
+     const res = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
+const text = await res.text();
+
+console.log("[HomeScreen] status:", res.status);
+console.log("[HomeScreen] first200:", text.slice(0, 200));
       try {
         const json = JSON.parse(text);
         // Expecting { activities: [...] } as earlier
