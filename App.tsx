@@ -3,6 +3,12 @@ import React, { useState } from "react";
 import AuthScreen from "./src/screens/AuthScreen";
 import HomeScreen from "./src/screens/HomeScreen";
 
+/**
+ * Minimal router (NO Supabase session gating yet)
+ * - AuthScreen: enter Athlete ID (temporary)
+ * - HomeScreen: fetch activities
+ */
+
 export default function App() {
   const [signedIn, setSignedIn] = useState(false);
   const [athleteId, setAthleteId] = useState<string>("");
