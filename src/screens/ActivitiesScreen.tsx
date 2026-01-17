@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 
@@ -17,7 +18,6 @@ type ActivityItem = {
 };
 
 type Props = {
-  // 親コンポーネント（例: App.tsx）がサインアウトを管理する場合はここに関数を渡す
   onSignOut?: () => void;
 };
 
@@ -69,25 +69,27 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
     fetchActivities();
   }, [fetchActivities]);
 
-  // 最小修正: 発火確認ログ + 親の onSignOut をあれば呼ぶ、なければ navigation.reset でフォールバック
+  // 発火確認用ハンドラ（必ずログと Alert を出す）
   const handleSignOut = useCallback(() => {
-    if (__DEV__) console.log("[Activities] signOut pressed");
+    console.log("[Activities] signOut pressed (TEMP CHECK)");
+    Alert.alert("SIGN OUT", "signOut pressed (TEMP CHECK)", [{ text: "OK" }]);
+
     if (typeof onSignOut === "function") {
-      if (__DEV__) console.log("[Activities] calling parent onSignOut()");
+      console.log("[Activities] calling parent onSignOut() (TEMP CHECK)");
       onSignOut();
       return;
     }
 
-    // フォールバック: navigation リセットして SignIn に戻す（プロジェクトに合わせてルート名を変更してください）
+    // フォールバック：navigation.reset（必要に応じてルート名を変更）
     try {
-      if (__DEV__) console.log("[Activities] performing navigation.reset to SignIn (fallback)");
-      // @ts-ignore - navigation.reset typing can differ depending on navigator setup
+      // @ts-ignore
       navigation.reset({
         index: 0,
         routes: [{ name: "SignIn" }],
       });
+      console.log("[Activities] navigation.reset called (TEMP CHECK)");
     } catch (err) {
-      if (__DEV__) console.log("[Activities] navigation.reset failed:", err);
+      console.log("[Activities] navigation.reset failed (TEMP CHECK):", err);
     }
   }, [navigation, onSignOut]);
 
