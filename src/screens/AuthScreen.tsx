@@ -3,16 +3,16 @@ import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 
 /**
  * Minimal AuthScreen
- * - App.tsx expects: <AuthScreen onSignIn={() => setSignedIn(true)} />
- * - For now, we just accept athleteId input and call onSignIn().
- *   (OAuth deep link integration can be added later.)
+ * - collects Athlete ID then calls onSignIn(athleteId)
  */
 type Props = {
-  onSignIn: () => void;
+  onSignIn: (athleteId: string) => void;
 };
 
 export default function AuthScreen({ onSignIn }: Props) {
   const [athleteId, setAthleteId] = useState("");
+
+  const canContinue = athleteId.trim().length > 0;
 
   return (
     <View style={styles.container}>
@@ -29,14 +29,19 @@ export default function AuthScreen({ onSignIn }: Props) {
       />
 
       <Pressable
-        style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-        onPress={onSignIn}
+        style={({ pressed }) => [
+          styles.button,
+          !canContinue && styles.buttonDisabled,
+          pressed && canContinue && styles.buttonPressed,
+        ]}
+        disabled={!canContinue}
+        onPress={() => onSignIn(athleteId.trim())}
       >
         <Text style={styles.buttonText}>Continue</Text>
       </Pressable>
 
       <Text style={styles.note}>
-        This is a placeholder Auth screen to unblock web build. OAuth flow can be wired after export succeeds.
+        This is a placeholder Auth screen. OAuth/Supabase session integration will be wired after UI flow is stable.
       </Text>
     </View>
   );
@@ -60,6 +65,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
   },
+  buttonDisabled: { opacity: 0.4 },
   buttonPressed: { opacity: 0.8 },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   note: { marginTop: 12, color: "#666", fontSize: 12 },

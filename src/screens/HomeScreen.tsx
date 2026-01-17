@@ -1,22 +1,21 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, Button, FlatList, ActivityIndicator, StyleSheet } from "react-native";
-import { supabase } from "../lib/supabaseClient";
 
 /**
  * HomeScreen
  * - calls the Netlify function to get activities
  * - shows a simple list (activity name + date)
- *
- * NOTE: This uses a hardcoded example userId query param (34646703) used earlier during debugging.
- * Replace the userId or make it dynamic if needed.
  */
+type Props = {
+  athleteId: string;
+  onSignOut?: () => void;
+};
 
 const GET_ACTIVITIES_BASE =
-  // Optionally use an env var: EXPO_PUBLIC_GET_ACTIVITIES_URL
   (typeof process !== "undefined" && (process.env as any).EXPO_PUBLIC_GET_ACTIVITIES_URL) ||
   "https://storied-donut-fd8311.netlify.app/.netlify/functions/get-activities";
 
-export default function HomeScreen({ onSignOut }: { onSignOut?: () => void }) {
+export default function HomeScreen({ athleteId, onSignOut }: Props) {
   const [activities, setActivities] = useState<any[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,27 +24,44 @@ export default function HomeScreen({ onSignOut }: { onSignOut?: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      // Replace or compute userId dynamically if you have it saved in session metadata
-      const userId = "34646703";
+      const userId = athleteId || "34646703";
       const url = `${GET_ACTIVITIES_BASE}?userId=${encodeURIComponent(userId)}&per_page=30`;
+<<<<<<< HEAD
       console.log("[HomeScreen] fetching activities from:", url);
      const res = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
 const text = await res.text();
 
 console.log("[HomeScreen] status:", res.status);
 console.log("[HomeScreen] first200:", text.slice(0, 200));
+=======
+      if (__DEV__) console.log("[HomeScreen] fetching:", url);
+
+      const res = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
+      const text = await res.text();
+
+      let json: any = null;
+>>>>>>> ace28ae (Fix screens and navigation props; update HomeScreen activities fetch)
       try {
-        const json = JSON.parse(text);
-        // Expecting { activities: [...] } as earlier
-        setActivities(Array.isArray(json.activities) ? json.activities : json.activities ? [json.activities] : []);
+        json = JSON.parse(text);
       } catch (e) {
-        // If response is plain text or not JSON
         setError("Invalid JSON response");
-        console.error("[HomeScreen] parse error", e, "raw:", text);
+        if (__DEV__) console.log("[HomeScreen] JSON parse error:", e);
+        return;
       }
+
+      // expected { activities: [...] } but tolerate other shapes
+      const list = Array.isArray(json?.activities)
+        ? json.activities
+        : Array.isArray(json)
+        ? json
+        : json?.activities
+        ? [json.activities]
+        : [];
+
+      setActivities(list);
     } catch (err) {
       setError(String(err));
-      console.error("[HomeScreen] fetch error", err);
+      if (__DEV__) console.log("[HomeScreen] fetch error:", err);
     } finally {
       setLoading(false);
     }
@@ -53,29 +69,10 @@ console.log("[HomeScreen] first200:", text.slice(0, 200));
 
   useEffect(() => {
     loadActivities();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-async function signOut() {
-  try {
-    console.log("[HomeScreen] Sign Out pressed");
-
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("[HomeScreen] supabase.signOut error:", error);
-      setError(`Sign out failed: ${error.message}`);
-      return;
-    }
-
-    console.log("[HomeScreen] supabase.signOut success");
-    onSignOut?.(); // App.tsx の state を false に
-  } catch (e) {
-    console.error("[HomeScreen] signOut exception:", e);
-    setError(`Sign out exception: ${String(e)}`);
-  }
-}
-
   function renderItem({ item }: { item: any }) {
-    // Try to show common Strava activity fields if present
     const name = item.name || item.type || "Activity";
     const start = item.start_date || item.start_date_local || item.start;
     return (
@@ -96,7 +93,7 @@ async function signOut() {
           <View style={{ flexDirection: "row", gap: 8 }}>
             <Button title="Refresh" onPress={loadActivities} />
             <View style={{ width: 8 }} />
-            <Button title="Sign Out" onPress={signOut} />
+            <Button title="Sign Out" onPress={onSignOut} />
           </View>
         </View>
 
