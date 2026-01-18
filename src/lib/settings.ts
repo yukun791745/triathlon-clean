@@ -22,10 +22,10 @@ export type UserSettings = {
   ftp: number;
 
   // Run
-  runThresholdPaceSecPerKm: number; // e.g., 270 for 4:30/km
+  runThresholdPaceSecPerKm: number;
 
   // Swim
-  cssSecPer100m: number; // e.g., 140 for 2:20/100m
+  cssSecPer100m: number;
 
   // Zones
   hrZones: HrZonesBpm;
@@ -38,8 +38,8 @@ export const DEFAULT_SETTINGS: UserSettings = {
   restingHr: 50,
   lthr: 165,
   ftp: 200,
-  runThresholdPaceSecPerKm: 270,
-  cssSecPer100m: 140,
+  runThresholdPaceSecPerKm: 270, // 4:30/km
+  cssSecPer100m: 140, // 2:20/100m
   hrZones: {
     z1Max: 120,
     z2Max: 140,
@@ -68,7 +68,6 @@ async function getItem(key: string): Promise<string | null> {
       return null;
     }
   }
-  // iOS/Android
   return await SecureStore.getItemAsync(key);
 }
 
