@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, Button, StyleSheet, ActivityIndicator, Pressable } from "react-native";
+import { View, Text, Button, StyleSheet, Pressable, ActivityIndicator } from "react-native";
 
 type Props = {
   athleteId: string;
@@ -18,14 +18,16 @@ type StravaActivity = {
   elapsed_time?: number; // seconds
 };
 
+// Netlify Function (GET activities)
 const GET_ACTIVITIES_BASE =
   (typeof process !== "undefined" && (process.env as any).EXPO_PUBLIC_GET_ACTIVITIES_URL) ||
   "https://storied-donut-fd8311.netlify.app/.netlify/functions/get-activities";
 
-function formatDate(iso?: string) {
-  if (!iso) return "--";
-  // まずは単純表示（詳細な日本語フォーマットは後で）
-  return iso.replace("T", " ").replace("Z", "");
+function formatDate(dateStr?: string) {
+  if (!dateStr) return "--";
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return String(dateStr);
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 function formatKm(meters?: number) {
@@ -35,69 +37,72 @@ function formatKm(meters?: number) {
 
 function formatHMS(seconds?: number) {
   if (typeof seconds !== "number") return "--";
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  return `${m}:${String(s).padStart(2, "0")}`;
+  const s = Math.max(0, Math.floor(seconds));
+  const hh = Math.floor(s / 3600);
+  const mm = Math.floor((s % 3600) / 60);
+  const ss = s % 60;
+  if (hh > 0) return `${hh}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
+  return `${mm}:${String(ss).padStart(2, "0")}`;
 }
 
 export default function HomeScreen({ athleteId, onSignOut }: Props) {
+  const userId = useMemo(() => athleteId || "34646703", [athleteId]);
+
   const [latest, setLatest] = useState<StravaActivity | null>(null);
-  const [count, setCount] = useState<number>(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>("");
-
-  const userId = athleteId || "34646703";
-
-  const url = useMemo(() => {
-    // 最新1件だけ欲しいので per_page=1
-    return `${GET_ACTIVITIES_BASE}?userId=${encodeURIComponent(userId)}&per_page=1`;
-  }, [userId]);
+  const [loadingLatest, setLoadingLatest] = useState(false);
+  const [latestError, setLatestError] = useState<string | null>(null);
+  const [debug, setDebug] = useState<{ status?: number; rawHead?: string; count?: number; url?: string } | null>(null);
 
   async function loadLatestActivity() {
-    setLoading(true);
-    setError("");
+    setLoadingLatest(true);
+    setLatestError(null);
+
+    // NOTE: latest 1 means fetch list and take first.
+    // If your function supports "per_page" + sorting, it should already return newest-first.
+    const url = `${GET_ACTIVITIES_BASE}?userId=${encodeURIComponent(userId)}&per_page=30`;
+    setDebug({ url });
 
     try {
       const res = await fetch(url);
       const text = await res.text();
 
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
-      }
+      setDebug((prev) => ({
+        ...(prev || {}),
+        status: res.status,
+        rawHead: text.slice(0, 200),
+      }));
 
-      let json: any;
-      try {
-        json = JSON.parse(text);
-      } catch (e) {
-        throw new Error(`JSON parse failed: ${(e as any)?.message ?? String(e)} / head=${text.slice(0, 200)}`);
-      }
+      const json = JSON.parse(text);
 
-      const list: any[] = Array.isArray(json) ? json : Array.isArray(json?.activities) ? json.activities : [];
+      const list: any[] = Array.isArray(json)
+        ? json
+        : Array.isArray(json?.activities)
+        ? json.activities
+        : [];
 
-      setCount(list.length);
+      setDebug((prev) => ({
+        ...(prev || {}),
+        count: list.length,
+      }));
 
-      const first = list[0] ?? null;
-      setLatest(first);
+      // pick latest 1
+      const first = list[0] as StravaActivity | undefined;
+      setLatest(first ?? null);
     } catch (e: any) {
       setLatest(null);
-      setCount(0);
-      setError(e?.message ? String(e.message) : String(e));
+      setLatestError(String(e?.message || e));
     } finally {
-      setLoading(false);
+      setLoadingLatest(false);
     }
   }
 
   useEffect(() => {
     loadLatestActivity();
-    // athleteIdが変わった場合にも更新
-  }, [url]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
-  const displayType = latest?.sport_type ?? latest?.type ?? "--";
-  const displayDate = formatDate(latest?.start_date_local ?? latest?.start_date);
-  const displayDistance = `${formatKm(latest?.distance)} km`;
-  const displayTime = formatHMS(latest?.moving_time ?? latest?.elapsed_time);
+  const latestType = latest?.sport_type || latest?.type || "--";
+  const latestDate = formatDate(latest?.start_date_local || latest?.start_date);
 
   return (
     <View style={styles.container}>
@@ -144,38 +149,43 @@ export default function HomeScreen({ athleteId, onSignOut }: Props) {
           <Text style={styles.small}>最新1件</Text>
         </View>
 
-        {/* ✅ デバッグ表示：cardHeader直下（必ず視認できる） */}
-        <View style={styles.debugBox}>
-          <Text style={styles.debugText}>debug: url={url}</Text>
-          <Text style={styles.debugText}>debug: loading={String(loading)} count={count} error={error ? "YES" : "NO"}</Text>
-        </View>
-
-        {loading && (
+        {loadingLatest && (
           <View style={{ marginTop: 10 }}>
             <ActivityIndicator />
+            <Text style={styles.note}>loading latest activity...</Text>
           </View>
         )}
 
-        {!!error && <Text style={{ color: "red", marginTop: 10 }}>{error}</Text>}
-
-        <Pressable
-          onPress={() => {
-            // ここは後で Activity 詳細へ遷移に置換
-          }}
-          style={({ pressed }) => [styles.activityRow, pressed && { opacity: 0.7 }]}
-        >
-          <View style={{ flex: 1 }}>
-            <Text style={styles.activityTitle}>{latest?.name ?? "（データなし）"}</Text>
-            <Text style={styles.activityMeta}>
-              {displayDate} • {displayDistance} • {displayTime} • {displayType}
-            </Text>
+        {!loadingLatest && latestError && (
+          <View style={{ marginTop: 10 }}>
+            <Text style={{ color: "red", fontSize: 12 }}>error: {latestError}</Text>
           </View>
-          <Text style={styles.chev}>›</Text>
-        </Pressable>
+        )}
 
-        <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
-          <Button title="再読み込み" onPress={loadLatestActivity} />
+        {!loadingLatest && !latestError && (
+          <Pressable style={styles.activityRow} onPress={() => { /* TODO: navigate to detail */ }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.activityTitle}>{latest?.name ?? "（データなし）"}</Text>
+              <Text style={styles.activityMeta}>
+                {latestDate} • {formatKm(latest?.distance)} km • {formatHMS(latest?.moving_time)} • {latestType}
+              </Text>
+            </View>
+            <Text style={styles.chev}>›</Text>
+          </Pressable>
+        )}
+
+        {/* ✅ デバッグ表示（ここが「最近のアクティビティ」カード内で、かつ note の直前） */}
+        <View style={styles.debugBox}>
+          <Text style={styles.debugText}>debug url: {debug?.url ?? "--"}</Text>
+          <Text style={styles.debugText}>debug status: {String(debug?.status ?? "--")}</Text>
+          <Text style={styles.debugText}>debug count: {String(debug?.count ?? "--")}</Text>
+          <Text style={styles.debugText}>debug rawHead: {debug?.rawHead ?? "--"}</Text>
+          <Pressable onPress={loadLatestActivity} style={styles.debugBtn}>
+            <Text style={styles.debugBtnText}>Reload latest</Text>
+          </Pressable>
         </View>
+
+        <Text style={styles.note}>ここに Strava 活動リストの最新1件を表示します。</Text>
       </View>
     </View>
   );
@@ -197,9 +207,6 @@ const styles = StyleSheet.create({
   metricLabel: { color: "#666", fontSize: 12 },
   metricValue: { fontSize: 18, fontWeight: "700", marginTop: 6 },
 
-  debugBox: { marginTop: 10, padding: 8, borderRadius: 8, backgroundColor: "#f5f5f5" },
-  debugText: { fontSize: 11, color: "#444" },
-
   activityRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -211,4 +218,9 @@ const styles = StyleSheet.create({
   activityTitle: { fontSize: 15, fontWeight: "600" },
   activityMeta: { color: "#666", marginTop: 4, fontSize: 12 },
   chev: { fontSize: 22, color: "#ccc", paddingLeft: 8 },
+
+  debugBox: { marginTop: 10, padding: 10, borderRadius: 10, backgroundColor: "#f7f7f7" },
+  debugText: { fontSize: 11, color: "#444", marginBottom: 4 },
+  debugBtn: { marginTop: 6, alignSelf: "flex-start", paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: "#ddd" },
+  debugBtnText: { fontSize: 12, fontWeight: "600" },
 });
