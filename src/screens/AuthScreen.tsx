@@ -25,7 +25,7 @@ export default function AuthScreen({ onSignIn }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Sign In (Minimal)</Text>
+      <Text style={styles.title}>Sign In (Minimal) [AUTHSCREEN OK]</Text>
 
       <Text style={styles.label}>Athlete ID (temporary)</Text>
       <TextInput
