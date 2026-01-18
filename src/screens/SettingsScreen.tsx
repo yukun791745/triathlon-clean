@@ -1,5 +1,15 @@
+// src/screens/SettingsScreen.tsx
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Alert, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  Pressable,
+  ScrollView,
+  ActivityIndicator,
+  Platform,
+} from "react-native";
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, UserSettings } from "../lib/settings";
 
 type Props = {
@@ -25,9 +35,14 @@ function toPaceParts(totalSec: number) {
 export default function SettingsScreen({ athleteId }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
 
-  // inputs (string)
+  // Save feedback (Alertに依存しない)
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
+
+  // pace input parts
   const paceParts = useMemo(() => toPaceParts(settings.runThresholdPaceSecPerKm), [settings.runThresholdPaceSecPerKm]);
   const cssParts = useMemo(() => toPaceParts(settings.cssSecPer100m), [settings.cssSecPer100m]);
 
@@ -38,25 +53,44 @@ export default function SettingsScreen({ athleteId }: Props) {
   const [cssSs, setCssSs] = useState(cssParts.ss);
 
   useEffect(() => {
+    let mounted = true;
     (async () => {
       try {
         const loaded = await loadSettings();
-        // athleteId は props を優先して表示だけ合わせる（保存もしてOK）
         const merged = { ...loaded, athleteId: athleteId || loaded.athleteId };
+        if (!mounted) return;
+
         setSettings(merged);
+
         const rp = toPaceParts(merged.runThresholdPaceSecPerKm);
         setRunMm(rp.mm);
         setRunSs(rp.ss);
+
         const cp = toPaceParts(merged.cssSecPer100m);
         setCssMm(cp.mm);
         setCssSs(cp.ss);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     })();
+    return () => {
+      mounted = false;
+    };
   }, [athleteId]);
 
+  function validate(next: UserSettings): string | null {
+    if (next.lthr <= 0 || next.maxHr <= 0 || next.ftp <= 0) return "maxHR / LTHR / FTP は正の数で入力してください。";
+    const z = next.hrZones;
+    if (!(z.z1Max < z.z2Max && z.z2Max < z.z3Max && z.z3Max < z.z4Max && z.z4Max < z.z5Max)) {
+      return "HRゾーン境界は Z1 < Z2 < Z3 < Z4 < Z5 の順にしてください。";
+    }
+    return null;
+  }
+
   async function onSave() {
+    setSaveMsg(null);
+    setSaveErr(null);
+
     const next: UserSettings = {
       ...settings,
       athleteId: athleteId || settings.athleteId,
@@ -64,18 +98,14 @@ export default function SettingsScreen({ athleteId }: Props) {
       cssSecPer100m: toSecFromPace(cssMm, cssSs, settings.cssSecPer100m),
       hrZones: {
         ...settings.hrZones,
-        // z5Max は maxHr に追従させる（事故防止）
+        // 事故防止: z5Max は maxHr に追従
         z5Max: settings.maxHr,
       },
     };
 
-    // 簡易バリデーション
-    if (next.lthr <= 0 || next.maxHr <= 0 || next.ftp <= 0) {
-      Alert.alert("入力エラー", "maxHR / LTHR / FTP は正の数で入力してください。");
-      return;
-    }
-    if (!(next.hrZones.z1Max < next.hrZones.z2Max && next.hrZones.z2Max < next.hrZones.z3Max && next.hrZones.z3Max < next.hrZones.z4Max && next.hrZones.z4Max < next.hrZones.z5Max)) {
-      Alert.alert("入力エラー", "HRゾーン境界は Z1 < Z2 < Z3 < Z4 < Z5 の順にしてください。");
+    const msg = validate(next);
+    if (msg) {
+      setSaveErr(msg);
       return;
     }
 
@@ -83,9 +113,17 @@ export default function SettingsScreen({ athleteId }: Props) {
     try {
       await saveSettings(next);
       setSettings(next);
-      Alert.alert("保存しました", "設定を保存しました。");
+      // 保存後、表示も整形（秒2桁）
+      const rp = toPaceParts(next.runThresholdPaceSecPerKm);
+      setRunMm(rp.mm);
+      setRunSs(rp.ss);
+      const cp = toPaceParts(next.cssSecPer100m);
+      setCssMm(cp.mm);
+      setCssSs(cp.ss);
+
+      setSaveMsg("保存しました。");
     } catch (e: any) {
-      Alert.alert("保存に失敗", String(e?.message || e));
+      setSaveErr(String(e?.message || e));
     } finally {
       setSaving(false);
     }
@@ -116,8 +154,16 @@ export default function SettingsScreen({ athleteId }: Props) {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>心拍（bpm）</Text>
 
-        <FieldInt label="Max HR" value={settings.maxHr} onChange={(n) => setSettings((s) => ({ ...s, maxHr: n, hrZones: { ...s.hrZones, z5Max: n } }))} />
-        <FieldInt label="Rest HR（任意）" value={settings.restingHr ?? 0} onChange={(n) => setSettings((s) => ({ ...s, restingHr: n }))} />
+        <FieldInt
+          label="Max HR"
+          value={settings.maxHr}
+          onChange={(n) => setSettings((s) => ({ ...s, maxHr: n, hrZones: { ...s.hrZones, z5Max: n } }))}
+        />
+        <FieldInt
+          label="Rest HR（任意）"
+          value={settings.restingHr ?? 0}
+          onChange={(n) => setSettings((s) => ({ ...s, restingHr: n }))}
+        />
         <FieldInt label="LTHR（閾値）" value={settings.lthr} onChange={(n) => setSettings((s) => ({ ...s, lthr: n }))} />
       </View>
 
@@ -128,12 +174,24 @@ export default function SettingsScreen({ athleteId }: Props) {
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>ラン</Text>
-        <PaceField label="閾値ペース（/km）" mm={runMm} ss={runSs} onChangeMm={setRunMm} onChangeSs={setRunSs} />
+        <PaceField
+          label="閾値ペース（/km）"
+          mm={runMm}
+          ss={runSs}
+          onChangeMm={setRunMm}
+          onChangeSs={setRunSs}
+        />
       </View>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>スイム</Text>
-        <PaceField label="CSS（/100m）" mm={cssMm} ss={cssSs} onChangeMm={setCssMm} onChangeSs={setCssSs} />
+        <PaceField
+          label="CSS（/100m）"
+          mm={cssMm}
+          ss={cssSs}
+          onChangeMm={setCssMm}
+          onChangeSs={setCssSs}
+        />
       </View>
 
       <View style={styles.card}>
@@ -144,6 +202,7 @@ export default function SettingsScreen({ athleteId }: Props) {
         <FieldInt label="Z2 上限" value={settings.hrZones.z2Max} onChange={(n) => setSettings((s) => ({ ...s, hrZones: { ...s.hrZones, z2Max: n } }))} />
         <FieldInt label="Z3 上限" value={settings.hrZones.z3Max} onChange={(n) => setSettings((s) => ({ ...s, hrZones: { ...s.hrZones, z3Max: n } }))} />
         <FieldInt label="Z4 上限" value={settings.hrZones.z4Max} onChange={(n) => setSettings((s) => ({ ...s, hrZones: { ...s.hrZones, z4Max: n } }))} />
+
         <View style={styles.row}>
           <Text style={styles.label}>Z5 上限</Text>
           <Text style={styles.value}>{settings.maxHr}</Text>
@@ -153,6 +212,10 @@ export default function SettingsScreen({ athleteId }: Props) {
       <Pressable onPress={onSave} disabled={saving} style={[styles.saveBtn, saving && { opacity: 0.6 }]}>
         <Text style={styles.saveBtnText}>{saving ? "保存中..." : "保存する"}</Text>
       </Pressable>
+
+      {/* 反応が見える保存メッセージ（Alert非依存） */}
+      {saveMsg && <Text style={styles.saveMsg}>{saveMsg}</Text>}
+      {saveErr && <Text style={styles.saveErr}>保存に失敗: {saveErr}</Text>}
 
       <View style={{ height: 24 }} />
     </ScrollView>
@@ -167,7 +230,7 @@ function FieldInt({ label, value, onChange }: { label: string; value: number; on
         style={styles.input}
         value={String(value)}
         onChangeText={(t) => onChange(toInt(t, value))}
-        keyboardType="number-pad"
+        keyboardType={Platform.OS === "web" ? "numeric" : "number-pad"}
       />
     </View>
   );
@@ -190,9 +253,21 @@ function PaceField({
     <View style={styles.row}>
       <Text style={styles.label}>{label}</Text>
       <View style={styles.paceWrap}>
-        <TextInput style={[styles.input, styles.pace]} value={mm} onChangeText={onChangeMm} keyboardType="number-pad" />
+        <TextInput
+          style={[styles.input, styles.pace]}
+          value={mm}
+          onChangeText={onChangeMm}
+          keyboardType={Platform.OS === "web" ? "numeric" : "number-pad"}
+          onBlur={() => onChangeMm(String(toInt(mm, 0)))}
+        />
         <Text style={styles.paceSep}>:</Text>
-        <TextInput style={[styles.input, styles.pace]} value={ss} onChangeText={onChangeSs} keyboardType="number-pad" />
+        <TextInput
+          style={[styles.input, styles.pace]}
+          value={ss}
+          onChangeText={onChangeSs}
+          keyboardType={Platform.OS === "web" ? "numeric" : "number-pad"}
+          onBlur={() => onChangeSs(String(toInt(ss, 0)).padStart(2, "0"))}
+        />
       </View>
     </View>
   );
@@ -212,12 +287,29 @@ const styles = StyleSheet.create({
   label: { width: 150, color: "#333", fontSize: 13 },
   value: { color: "#111", fontSize: 13 },
 
-  input: { borderWidth: 1, borderColor: "#e5e5e5", borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, minWidth: 90, textAlign: "right" },
+  input: {
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    minWidth: 90,
+    textAlign: "right",
+  },
 
   paceWrap: { flexDirection: "row", alignItems: "center" },
   pace: { minWidth: 60 },
   paceSep: { paddingHorizontal: 6, color: "#666" },
 
-  saveBtn: { marginTop: 14, backgroundColor: "#111", borderRadius: 12, paddingVertical: 12, alignItems: "center" },
+  saveBtn: {
+    marginTop: 16,
+    backgroundColor: "#111",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
   saveBtnText: { color: "#fff", fontWeight: "700" },
+
+  saveMsg: { marginTop: 10, color: "#111", fontSize: 12 },
+  saveErr: { marginTop: 10, color: "red", fontSize: 12 },
 });
