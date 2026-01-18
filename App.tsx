@@ -1,20 +1,14 @@
 import "react-native-url-polyfill/auto";
 import React, { useState } from "react";
 import AuthScreen from "./src/screens/AuthScreen";
-import HomeScreen from "./src/screens/HomeScreen";
-
-/**
- * Minimal router (NO Supabase session gating yet)
- * - AuthScreen: enter Athlete ID (temporary)
- * - HomeScreen: fetch activities
- */
+import Navigation from "./navigation";
 
 export default function App() {
   const [signedIn, setSignedIn] = useState(false);
   const [athleteId, setAthleteId] = useState<string>("");
 
   return signedIn ? (
-    <HomeScreen
+    <Navigation
       athleteId={athleteId}
       onSignOut={() => {
         setSignedIn(false);
