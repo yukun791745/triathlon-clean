@@ -1,5 +1,6 @@
 // src/lib/settings.ts
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
+import * as SecureStore from "expo-secure-store";
 
 export type HrZonesBpm = {
   z1Max: number;
@@ -48,17 +49,53 @@ export const DEFAULT_SETTINGS: UserSettings = {
   },
 };
 
+function mergeSettings(parsed: any): UserSettings {
+  return {
+    ...DEFAULT_SETTINGS,
+    ...(parsed || {}),
+    hrZones: {
+      ...DEFAULT_SETTINGS.hrZones,
+      ...((parsed && parsed.hrZones) || {}),
+    },
+  };
+}
+
+async function getItem(key: string): Promise<string | null> {
+  if (Platform.OS === "web") {
+    try {
+      return window.localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  }
+  // iOS/Android
+  return await SecureStore.getItemAsync(key);
+}
+
+async function setItem(key: string, value: string): Promise<void> {
+  if (Platform.OS === "web") {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch {
+      // ignore
+    }
+    return;
+  }
+  await SecureStore.setItemAsync(key, value);
+}
+
 export async function loadSettings(): Promise<UserSettings> {
-  const raw = await AsyncStorage.getItem(KEY);
+  const raw = await getItem(KEY);
   if (!raw) return DEFAULT_SETTINGS;
+
   try {
     const parsed = JSON.parse(raw);
-    return { ...DEFAULT_SETTINGS, ...parsed, hrZones: { ...DEFAULT_SETTINGS.hrZones, ...(parsed?.hrZones || {}) } };
+    return mergeSettings(parsed);
   } catch {
     return DEFAULT_SETTINGS;
   }
 }
 
 export async function saveSettings(next: UserSettings): Promise<void> {
-  await AsyncStorage.setItem(KEY, JSON.stringify(next));
+  await setItem(KEY, JSON.stringify(next));
 }
