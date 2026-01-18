@@ -25,11 +25,11 @@ export type UserSettings = {
 const KEY = "triathlon_app_user_settings_v1";
 
 export const DEFAULT_SETTINGS: UserSettings = {
-  maxHr: 180,
+  maxHr: 173,
   restingHr: 50,
-  lthr: 165,
-  ftp: 200,
-  runThresholdPaceSecPerKm: 270,
+  lthr: 161,
+  ftp: 195,
+  runThresholdPaceSecPerKm: 271,
   cssSecPer100m: 140,
   hrZones: { z1Max: 120, z2Max: 140, z3Max: 155, z4Max: 170, z5Max: 180 },
 };
