@@ -1,6 +1,11 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
+import { View, Text, TextInput, Button, StyleSheet } from "react-native";
 
+/**
+ * Minimal AuthScreen
+ * - collects Athlete ID then calls onSignIn(athleteId)
+ * - EMPTY input is allowed -> fallback to DEFAULT_ATHLETE_ID
+ */
 type Props = {
   onSignIn: (athleteId: string) => void;
 };
@@ -13,12 +18,14 @@ export default function AuthScreen({ onSignIn }: Props) {
   function handleContinue() {
     const trimmed = athleteId.trim();
     const idToUse = trimmed.length > 0 ? trimmed : DEFAULT_ATHLETE_ID;
+
+    console.log("[AuthScreen] continue with athleteId =", idToUse);
     onSignIn(idToUse);
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Sign in (Minimal)</Text>
+      <Text style={styles.title}>Sign In (Minimal)</Text>
 
       <Text style={styles.label}>Athlete ID (temporary)</Text>
       <TextInput
@@ -27,46 +34,45 @@ export default function AuthScreen({ onSignIn }: Props) {
         placeholder={`e.g. ${DEFAULT_ATHLETE_ID}`}
         autoCapitalize="none"
         autoCorrect={false}
+        keyboardType="numeric"
         style={styles.input}
       />
 
-      {/* disabled を使わない */}
-      <Pressable
-        style={({ pressed }) => [
-          styles.button,
-          pressed && styles.buttonPressed,
-        ]}
-        onPress={handleContinue}
-      >
-        <Text style={styles.buttonText}>Continue</Text>
-      </Pressable>
+      <Button title="Continue" onPress={handleContinue} />
 
       <Text style={styles.note}>
-        Placeholder Auth screen. OAuth will be wired later.
+        If left empty, a default Athlete ID will be used.
       </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, justifyContent: "center" },
-  title: { fontSize: 20, fontWeight: "600", marginBottom: 16 },
-  label: { fontSize: 14, marginBottom: 8 },
+  container: {
+    flex: 1,
+    padding: 20,
+    justifyContent: "center",
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "600",
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
   input: {
     borderWidth: 1,
     borderColor: "#ccc",
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 8,
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  button: {
-    backgroundColor: "#111",
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: "center",
+  note: {
+    marginTop: 12,
+    color: "#666",
+    fontSize: 12,
   },
-  buttonPressed: { opacity: 0.8 },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  note: { marginTop: 12, color: "#666", fontSize: 12 },
 });
