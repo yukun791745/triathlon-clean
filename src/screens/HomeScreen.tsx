@@ -93,41 +93,63 @@ export default function HomeScreen({ athleteId, onSignOut }: Props) {
 } | null>(null);
 
   async function loadActivities() {
-    setLoading(true);
-    setError(null);
+  setLoading(true);
+  setError(null);
 
-    const userId = athleteId || "34646703";
-    const url = `${GET_ACTIVITIES_BASE}?userId=${encodeURIComponent(
-      userId
-    )}&per_page=30`;
+  const userId = athleteId || "34646703";
+  const url = `${GET_ACTIVITIES_BASE}?userId=${encodeURIComponent(userId)}&per_page=30`;
 
-    console.log("[HomeScreen] fetching URL =", url);
+  console.log("[HomeScreen] fetching URL =", url);
 
+  try {
+    const res = await fetch(url);
+    const text = await res.text();
+
+    console.log("[HomeScreen] status =", res.status);
+    console.log("[HomeScreen] raw response head =", text.slice(0, 300));
+
+    let json: any = null;
     try {
-      const res = await fetch(url);
-      const text = await res.text();
-
-      console.log("[HomeScreen] status =", res.status);
-      console.log("[HomeScreen] raw response head =", text.slice(0, 300));
-
-      const json = JSON.parse(text);
-
-      const list = Array.isArray(json)
-        ? json
-        : Array.isArray(json?.activities)
-        ? json.activities
-        : [];
-
-      console.log("[HomeScreen] parsed activities count =", list.length);
-      setActivities(list as StravaActivityLike[]);
-    } catch (e: any) {
-      console.error("[HomeScreen] ERROR", e);
-      setError(String(e));
-    } finally {
-      setLoading(false);
+      json = JSON.parse(text);
+    } catch (e) {
+      // JSONでない可能性（HTMLやプレーンテキスト）
+      setDebug({
+        url,
+        status: res.status,
+        head: text.slice(0, 300),
+        keys: ["<non-json response>"],
+        count: 0,
+      });
+      setActivities([]);
+      return;
     }
-  }
 
+    // 返却パターンを広めに吸収
+    const list =
+      Array.isArray(json) ? json :
+      Array.isArray(json?.activities) ? json.activities :
+      Array.isArray(json?.data) ? json.data :
+      Array.isArray(json?.items) ? json.items :
+      Array.isArray(json?.result) ? json.result :
+      [];
+
+    setDebug({
+      url,
+      status: res.status,
+      head: JSON.stringify(json).slice(0, 300),
+      keys: json && typeof json === "object" ? Object.keys(json) : ["<not-object>"],
+      count: list.length,
+    });
+
+    console.log("[HomeScreen] parsed activities count =", list.length);
+    setActivities(list);
+  } catch (e: any) {
+    console.error("[HomeScreen] ERROR", e);
+    setError(String(e));
+  } finally {
+    setLoading(false);
+  }
+}
   useEffect(() => {
     loadActivities();
     // eslint-disable-next-line react-hooks/exhaustive-deps
