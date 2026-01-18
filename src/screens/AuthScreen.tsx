@@ -1,11 +1,6 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 
-/**
- * Minimal AuthScreen
- * - collects Athlete ID then calls onSignIn(athleteId)
- * - allows empty input (defaults to 34646703)
- */
 type Props = {
   onSignIn: (athleteId: string) => void;
 };
@@ -14,9 +9,6 @@ const DEFAULT_ATHLETE_ID = "34646703";
 
 export default function AuthScreen({ onSignIn }: Props) {
   const [athleteId, setAthleteId] = useState("");
-
-  // Allow empty (will default). If user types, require at least 1 char.
-  const canContinue = true;
 
   function handleContinue() {
     const trimmed = athleteId.trim();
@@ -38,16 +30,19 @@ export default function AuthScreen({ onSignIn }: Props) {
         style={styles.input}
       />
 
+      {/* disabled を使わない */}
       <Pressable
-        style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-        disabled={!canContinue}
+        style={({ pressed }) => [
+          styles.button,
+          pressed && styles.buttonPressed,
+        ]}
         onPress={handleContinue}
       >
         <Text style={styles.buttonText}>Continue</Text>
       </Pressable>
 
       <Text style={styles.note}>
-        This is a placeholder Auth screen. OAuth/Supabase session integration will be wired after UI flow is stable.
+        Placeholder Auth screen. OAuth will be wired later.
       </Text>
     </View>
   );
