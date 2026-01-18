@@ -51,27 +51,16 @@ export default function HomeScreen({ athleteId, onSignOut }: Props) {
   const [latest, setLatest] = useState<StravaActivity | null>(null);
   const [loadingLatest, setLoadingLatest] = useState(false);
   const [latestError, setLatestError] = useState<string | null>(null);
-  const [debug, setDebug] = useState<{ status?: number; rawHead?: string; count?: number; url?: string } | null>(null);
 
   async function loadLatestActivity() {
     setLoadingLatest(true);
     setLatestError(null);
 
-    // NOTE: latest 1 means fetch list and take first.
-    // If your function supports "per_page" + sorting, it should already return newest-first.
     const url = `${GET_ACTIVITIES_BASE}?userId=${encodeURIComponent(userId)}&per_page=30`;
-    setDebug({ url });
 
     try {
       const res = await fetch(url);
       const text = await res.text();
-
-      setDebug((prev) => ({
-        ...(prev || {}),
-        status: res.status,
-        rawHead: text.slice(0, 200),
-      }));
-
       const json = JSON.parse(text);
 
       const list: any[] = Array.isArray(json)
@@ -80,12 +69,7 @@ export default function HomeScreen({ athleteId, onSignOut }: Props) {
         ? json.activities
         : [];
 
-      setDebug((prev) => ({
-        ...(prev || {}),
-        count: list.length,
-      }));
-
-      // pick latest 1
+      // newest-first 前提で先頭を最新として採用
       const first = list[0] as StravaActivity | undefined;
       setLatest(first ?? null);
     } catch (e: any) {
@@ -159,11 +143,21 @@ export default function HomeScreen({ athleteId, onSignOut }: Props) {
         {!loadingLatest && latestError && (
           <View style={{ marginTop: 10 }}>
             <Text style={{ color: "red", fontSize: 12 }}>error: {latestError}</Text>
+
+            {/* “差し替え作業を増やさず”に再試行できるようボタンだけ残す */}
+            <Pressable onPress={loadLatestActivity} style={styles.retryBtn}>
+              <Text style={styles.retryBtnText}>再読み込み</Text>
+            </Pressable>
           </View>
         )}
 
         {!loadingLatest && !latestError && (
-          <Pressable style={styles.activityRow} onPress={() => { /* TODO: navigate to detail */ }}>
+          <Pressable
+            style={styles.activityRow}
+            onPress={() => {
+              // TODO: navigate to detail
+            }}
+          >
             <View style={{ flex: 1 }}>
               <Text style={styles.activityTitle}>{latest?.name ?? "（データなし）"}</Text>
               <Text style={styles.activityMeta}>
@@ -173,17 +167,6 @@ export default function HomeScreen({ athleteId, onSignOut }: Props) {
             <Text style={styles.chev}>›</Text>
           </Pressable>
         )}
-
-        {/* ✅ デバッグ表示（ここが「最近のアクティビティ」カード内で、かつ note の直前） */}
-        <View style={styles.debugBox}>
-          <Text style={styles.debugText}>debug url: {debug?.url ?? "--"}</Text>
-          <Text style={styles.debugText}>debug status: {String(debug?.status ?? "--")}</Text>
-          <Text style={styles.debugText}>debug count: {String(debug?.count ?? "--")}</Text>
-          <Text style={styles.debugText}>debug rawHead: {debug?.rawHead ?? "--"}</Text>
-          <Pressable onPress={loadLatestActivity} style={styles.debugBtn}>
-            <Text style={styles.debugBtnText}>Reload latest</Text>
-          </Pressable>
-        </View>
 
         <Text style={styles.note}>ここに Strava 活動リストの最新1件を表示します。</Text>
       </View>
@@ -219,8 +202,13 @@ const styles = StyleSheet.create({
   activityMeta: { color: "#666", marginTop: 4, fontSize: 12 },
   chev: { fontSize: 22, color: "#ccc", paddingLeft: 8 },
 
-  debugBox: { marginTop: 10, padding: 10, borderRadius: 10, backgroundColor: "#f7f7f7" },
-  debugText: { fontSize: 11, color: "#444", marginBottom: 4 },
-  debugBtn: { marginTop: 6, alignSelf: "flex-start", paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: "#ddd" },
-  debugBtnText: { fontSize: 12, fontWeight: "600" },
+  retryBtn: {
+    marginTop: 10,
+    alignSelf: "flex-start",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: "#eee",
+  },
+  retryBtnText: { fontSize: 12, fontWeight: "700" },
 });
