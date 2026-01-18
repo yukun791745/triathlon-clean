@@ -1,3 +1,4 @@
+cat > src/lib/settings.ts <<'EOF'
 // src/lib/settings.ts
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
@@ -98,3 +99,4 @@ export async function loadSettings(): Promise<UserSettings> {
 export async function saveSettings(next: UserSettings): Promise<void> {
   await setItem(KEY, JSON.stringify(next));
 }
+EOF
