@@ -34,6 +34,8 @@ export default function HomeScreen({ athleteId, onSignOut }: Props) {
       let json: any = null;
       try {
         json = JSON.parse(text);
+        console.log("[HomeScreen] typeof json:", Array.isArray(json) ? "array" : typeof json);
+        console.log("[HomeScreen] keys:", json && !Array.isArray(json) ? Object.keys(json).slice(0, 20) : "(array)");
       } catch (e) {
         setError("Invalid JSON response");
         if (__DEV__) console.log("[HomeScreen] JSON parse error:", e);
