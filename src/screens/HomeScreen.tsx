@@ -84,6 +84,13 @@ export default function HomeScreen({ athleteId, onSignOut }: Props) {
   const [activities, setActivities] = useState<StravaActivityLike[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [debug, setDebug] = useState<{
+  url?: string;
+  status?: number;
+  head?: string;
+  keys?: string[];
+  count?: number;
+} | null>(null);
 
   async function loadActivities() {
     setLoading(true);
