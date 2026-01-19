@@ -85,7 +85,6 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
     try {
       console.log("[ActivitiesScreen] signOut pressed");
 
-      // 重要: ローカル変数へ落とすことで TS が null を完全に排除できる
       const client = supabase;
       if (!client) {
         onSignOut?.();

@@ -1,26 +1,37 @@
-cd /Users/yujirotsutsumi/Desktop/triathlon-clean
-
-cat > App.tsx <<'TS'
+// App.tsx
 import React, { useMemo, useState } from "react";
 import { Platform } from "react-native";
 
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 
+// Screens（存在している前提）
 import AuthScreen from "./src/screens/AuthScreen";
 import ActivitiesScreen from "./src/screens/ActivitiesScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
 
+// もし Fitness/Training など他のタブがあるなら後で追加でOK
+// import TrainingScreen from "./src/screens/TrainingScreen";
+// import FitnessDetailScreen from "./src/screens/FitnessDetailScreen";
+
 type RootTabParamList = {
   Activities: undefined;
   Settings: undefined;
+  // Training: undefined;
 };
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
 export default function App() {
+  /**
+   * 成功パターンの要件:
+   * - 起動直後は AuthScreen（Sign In）
+   * - Sign In 成功後に Tabs 表示（下部ナビ復活）
+   *
+   * 現状は Supabase 認証が安定していない可能性があるので、
+   * まずは「AuthScreen から onSignedIn を呼んだら Tabs に遷移」する設計に固定します。
+   */
   const [signedIn, setSignedIn] = useState(false);
-  const [athleteId, setAthleteId] = useState<string>("34646703"); // まず固定（成功優先）
 
   const navTheme = useMemo(
     () => ({
@@ -37,14 +48,12 @@ export default function App() {
     []
   );
 
-  // 起動直後は必ず Sign In（成功パターン）
+  // Auth が出ることを最優先（ここがあなたの「成功パターン」）
   if (!signedIn) {
     return (
       <AuthScreen
-        onSignIn={(id: string) => {
-          setAthleteId(id || "34646703");
-          setSignedIn(true);
-        }}
+        onSignedIn={() => setSignedIn(true)}
+        // 必要なら初期状態で web だけ自動サインイン等も後でやれる
       />
     );
   }
@@ -57,10 +66,13 @@ export default function App() {
           tabBarHideOnKeyboard: Platform.OS !== "web",
         }}
       >
-        <Tab.Screen name="Activities" options={{ title: "Activities" }}>
-          {() => (
+        <Tab.Screen
+          name="Activities"
+          options={{ title: "Activities" }}
+        >
+          {(props) => (
             <ActivitiesScreen
-              // ここは今の ActivitiesScreen 実装に合わせて props を渡さない（内部で固定ID/URLを使っている）
+              {...props}
               onSignOut={() => setSignedIn(false)}
             />
           )}
@@ -75,4 +87,3 @@ export default function App() {
     </NavigationContainer>
   );
 }
-TS
