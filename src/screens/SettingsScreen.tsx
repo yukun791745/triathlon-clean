@@ -1,357 +1,492 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, ActivityIndicator, Platform } from "react-native";
-import { DEFAULT_SETTINGS, loadSettings, saveSettings, UserSettings } from "../lib/settings";
+// src/screens/SettingsScreen.tsx
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+  Platform,
+} from "react-native";
 
-type Props = {
-  athleteId: string;
-};
+import { DEFAULT_SETTINGS, loadSettings, saveSettings, type UserSettings } from "../lib/settings";
 
-function digitsOnly(s: string) {
-  return (s ?? "").replace(/[^\d]/g, "");
-}
-
+// ---------- utils ----------
 function clampInt(n: number, min: number, max: number) {
-  if (!Number.isFinite(n)) return min;
+  if (Number.isNaN(n)) return min;
   return Math.min(max, Math.max(min, n));
 }
 
-function toIntSafe(s: string, fallback: number) {
-  const v = parseInt(digitsOnly(s), 10);
-  return Number.isFinite(v) ? v : fallback;
+function toIntOrNaN(s: string) {
+  const n = parseInt((s ?? "").trim(), 10);
+  return Number.isFinite(n) ? n : NaN;
 }
 
-function toPaceParts(totalSec: number) {
-  const sec = Math.max(0, Math.floor(totalSec || 0));
-  return {
-    mm: String(Math.floor(sec / 60)),
-    ss: String(sec % 60).padStart(2, "0"),
-  };
+function pad2(n: number) {
+  const x = Number.isFinite(n) ? n : 0;
+  return String(x).padStart(2, "0");
 }
 
-function toSecFromParts(mm: string, ss: string, fallbackSec: number) {
-  const m = toIntSafe(mm, Math.floor(fallbackSec / 60));
-  const s = toIntSafe(ss, fallbackSec % 60);
-  return Math.max(0, m * 60 + clampInt(s, 0, 59));
+function splitToMinSec(totalSec: number) {
+  const safe = Number.isFinite(totalSec) ? Math.max(0, Math.round(totalSec)) : 0;
+  const m = Math.floor(safe / 60);
+  const s = safe % 60;
+  return { m, s };
 }
 
-export default function SettingsScreen({ athleteId }: Props) {
+function composeMinSec(minStr: string, secStr: string) {
+  const m = clampInt(toIntOrNaN(minStr), 0, 999);
+  const s = clampInt(toIntOrNaN(secStr), 0, 59);
+  return m * 60 + s;
+}
+
+function formatMinSec(totalSec: number) {
+  const { m, s } = splitToMinSec(totalSec);
+  return `${m}:${pad2(s)}`;
+}
+
+// ---------- component ----------
+export default function SettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // 入力は string で保持（入力途中を壊さない）
-  const [maxHrStr, setMaxHrStr] = useState(String(DEFAULT_SETTINGS.maxHr));
-  const [restHrStr, setRestHrStr] = useState(String(DEFAULT_SETTINGS.restingHr ?? 0));
-  const [lthrStr, setLthrStr] = useState(String(DEFAULT_SETTINGS.lthr));
-  const [ftpStr, setFtpStr] = useState(String(DEFAULT_SETTINGS.ftp));
+  // core numeric fields (string state for TextInput)
+  const [maxHr, setMaxHr] = useState<string>("");
+  const [lthr, setLthr] = useState<string>("");
+  const [ftp, setFtp] = useState<string>("");
 
-  const initRun = useMemo(() => toPaceParts(DEFAULT_SETTINGS.runThresholdPaceSecPerKm), []);
-  const initCss = useMemo(() => toPaceParts(DEFAULT_SETTINGS.cssSecPer100m), []);
+  // optional
+  const [restingHr, setRestingHr] = useState<string>("");
 
-  const [runMm, setRunMm] = useState(initRun.mm);
-  const [runSs, setRunSs] = useState(initRun.ss);
+  // Run threshold pace (sec/km) => min/sec inputs
+  const [runPaceMin, setRunPaceMin] = useState<string>("");
+  const [runPaceSec, setRunPaceSec] = useState<string>("");
 
-  const [cssMm, setCssMm] = useState(initCss.mm);
-  const [cssSs, setCssSs] = useState(initCss.ss);
+  // CSS (sec/100m) => min/sec inputs
+  const [cssMin, setCssMin] = useState<string>("");
+  const [cssSec, setCssSec] = useState<string>("");
 
-  const [z1Str, setZ1Str] = useState(String(DEFAULT_SETTINGS.hrZones.z1Max));
-  const [z2Str, setZ2Str] = useState(String(DEFAULT_SETTINGS.hrZones.z2Max));
-  const [z3Str, setZ3Str] = useState(String(DEFAULT_SETTINGS.hrZones.z3Max));
-  const [z4Str, setZ4Str] = useState(String(DEFAULT_SETTINGS.hrZones.z4Max));
+  // HR Zones (max values in bpm)
+  const [z1Max, setZ1Max] = useState<string>("");
+  const [z2Max, setZ2Max] = useState<string>("");
+  const [z3Max, setZ3Max] = useState<string>("");
+  const [z4Max, setZ4Max] = useState<string>("");
+  const [z5Max, setZ5Max] = useState<string>("");
 
-  const [msg, setMsg] = useState<string>("");
-
+  // Load once
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const loaded = await loadSettings();
+        setLoading(true);
+        setErrorMsg(null);
+        setStatusMsg(null);
+
+        const s = await loadSettings();
+
         if (!mounted) return;
 
-        const merged: UserSettings = {
-          ...DEFAULT_SETTINGS,
-          ...loaded,
-          athleteId: athleteId || loaded.athleteId,
-          hrZones: { ...DEFAULT_SETTINGS.hrZones, ...(loaded.hrZones || {}) },
-        };
+        setMaxHr(String(s.maxHr ?? DEFAULT_SETTINGS.maxHr));
+        setLthr(String(s.lthr ?? DEFAULT_SETTINGS.lthr));
+        setFtp(String(s.ftp ?? DEFAULT_SETTINGS.ftp));
+        setRestingHr(s.restingHr != null ? String(s.restingHr) : "");
 
-        setSettings(merged);
+        // run pace
+        const run = splitToMinSec(s.runThresholdPaceSecPerKm ?? DEFAULT_SETTINGS.runThresholdPaceSecPerKm);
+        setRunPaceMin(String(run.m));
+        setRunPaceSec(pad2(run.s)); // ✅ 2桁
 
-        setMaxHrStr(String(merged.maxHr));
-        setRestHrStr(String(merged.restingHr ?? 0));
-        setLthrStr(String(merged.lthr));
-        setFtpStr(String(merged.ftp));
+        // css
+        const css = splitToMinSec(s.cssSecPer100m ?? DEFAULT_SETTINGS.cssSecPer100m);
+        setCssMin(String(css.m));
+        setCssSec(pad2(css.s)); // ✅ 2桁
 
-        const rp = toPaceParts(merged.runThresholdPaceSecPerKm);
-        setRunMm(rp.mm);
-        setRunSs(rp.ss);
-
-        const cp = toPaceParts(merged.cssSecPer100m);
-        setCssMm(cp.mm);
-        setCssSs(cp.ss);
-
-        setZ1Str(String(merged.hrZones.z1Max));
-        setZ2Str(String(merged.hrZones.z2Max));
-        setZ3Str(String(merged.hrZones.z3Max));
-        setZ4Str(String(merged.hrZones.z4Max));
-
-        setMsg("");
-      } catch (e: any) {
-        setMsg(`load error: ${String(e?.message || e)}`);
+        const hz = s.hrZones ?? DEFAULT_SETTINGS.hrZones;
+        setZ1Max(String(hz.z1Max));
+        setZ2Max(String(hz.z2Max));
+        setZ3Max(String(hz.z3Max));
+        setZ4Max(String(hz.z4Max));
+        setZ5Max(String(hz.z5Max));
+      } catch (e) {
+        if (!mounted) return;
+        setErrorMsg(`Failed to load settings: ${String(e)}`);
       } finally {
+        if (!mounted) return;
         setLoading(false);
       }
     })();
+
     return () => {
       mounted = false;
     };
-  }, [athleteId]);
+  }, []);
 
-  function normalizeSs(v: string) {
-    const n = clampInt(toIntSafe(v, 0), 0, 59);
-    return String(n).padStart(2, "0");
-  }
+  const preview = useMemo(() => {
+    const runSec = composeMinSec(runPaceMin, runPaceSec);
+    const cssSecTotal = composeMinSec(cssMin, cssSec);
+    return {
+      runPace: formatMinSec(runSec) + " /km",
+      css: formatMinSec(cssSecTotal) + " /100m",
+    };
+  }, [runPaceMin, runPaceSec, cssMin, cssSec]);
 
-  async function onSave() {
-    setMsg("");
-    setSaving(true);
+  const onSave = useCallback(async () => {
+    setErrorMsg(null);
+    setStatusMsg(null);
+
+    // basic validation & normalize
+    const nextMaxHr = clampInt(toIntOrNaN(maxHr), 60, 240);
+    const nextLthr = clampInt(toIntOrNaN(lthr), 60, 240);
+    const nextFtp = clampInt(toIntOrNaN(ftp), 50, 600);
+
+    // resting HR optional
+    const rhrRaw = restingHr.trim();
+    const nextRestingHr =
+      rhrRaw.length === 0 ? undefined : clampInt(toIntOrNaN(rhrRaw), 25, 120);
+
+    const runSec = composeMinSec(runPaceMin, runPaceSec);
+    const cssSecTotal = composeMinSec(cssMin, cssSec);
+
+    // Zones
+    const nz1 = clampInt(toIntOrNaN(z1Max), 40, 240);
+    const nz2 = clampInt(toIntOrNaN(z2Max), 40, 240);
+    const nz3 = clampInt(toIntOrNaN(z3Max), 40, 240);
+    const nz4 = clampInt(toIntOrNaN(z4Max), 40, 240);
+    const nz5 = clampInt(toIntOrNaN(z5Max), 40, 240);
+
+    // sanity checks
+    if (!(nz1 <= nz2 && nz2 <= nz3 && nz3 <= nz4 && nz4 <= nz5)) {
+      setErrorMsg("HR zones must be non-decreasing (Z1 <= Z2 <= Z3 <= Z4 <= Z5).");
+      return;
+    }
+    if (nz5 !== nextMaxHr) {
+      // z5Max is defined as maxHR in your earlier type comment
+      setErrorMsg("Z5 max should equal MaxHR (please set Z5 max = MaxHR).");
+      return;
+    }
+
+    const next: UserSettings = {
+      athleteId: undefined, // (reserved)
+      maxHr: nextMaxHr,
+      restingHr: nextRestingHr,
+      lthr: nextLthr,
+      ftp: nextFtp,
+      runThresholdPaceSecPerKm: runSec,
+      cssSecPer100m: cssSecTotal,
+      hrZones: {
+        z1Max: nz1,
+        z2Max: nz2,
+        z3Max: nz3,
+        z4Max: nz4,
+        z5Max: nz5,
+      },
+    };
 
     try {
-      const maxHr = toIntSafe(maxHrStr, settings.maxHr);
-      const restingHr = toIntSafe(restHrStr, settings.restingHr ?? 0);
-      const lthr = toIntSafe(lthrStr, settings.lthr);
-      const ftp = toIntSafe(ftpStr, settings.ftp);
-
-      const z1 = toIntSafe(z1Str, settings.hrZones.z1Max);
-      const z2 = toIntSafe(z2Str, settings.hrZones.z2Max);
-      const z3 = toIntSafe(z3Str, settings.hrZones.z3Max);
-      const z4 = toIntSafe(z4Str, settings.hrZones.z4Max);
-
-      const runPace = toSecFromParts(runMm, runSs, settings.runThresholdPaceSecPerKm);
-      const cssPace = toSecFromParts(cssMm, cssSs, settings.cssSecPer100m);
-
-      // バリデーション（最小）
-      if (maxHr <= 0 || lthr <= 0 || ftp <= 0) {
-        setMsg("入力エラー: MaxHR / LTHR / FTP は正の数で入力してください。");
-        return;
-      }
-      if (!(z1 < z2 && z2 < z3 && z3 < z4 && z4 < maxHr)) {
-        setMsg("入力エラー: HRゾーンは Z1 < Z2 < Z3 < Z4 < MaxHR の順にしてください。");
-        return;
-      }
-
-      const next: UserSettings = {
-        ...settings,
-        athleteId: athleteId || settings.athleteId,
-        maxHr,
-        restingHr: restingHr > 0 ? restingHr : undefined,
-        lthr,
-        ftp,
-        runThresholdPaceSecPerKm: runPace,
-        cssSecPer100m: cssPace,
-        hrZones: {
-          z1Max: z1,
-          z2Max: z2,
-          z3Max: z3,
-          z4Max: z4,
-          z5Max: maxHr, // 常に maxHr
-        },
-      };
-
+      setSaving(true);
       await saveSettings(next);
-      setSettings(next);
 
-      // 表示も整形して揃える（秒2桁）
-      setRunSs(normalizeSs(runSs));
-      setCssSs(normalizeSs(cssSs));
+      // ✅ Save後のUI反映（秒2桁に整形）
+      const run = splitToMinSec(runSec);
+      setRunPaceMin(String(run.m));
+      setRunPaceSec(pad2(run.s));
 
-      setMsg("保存しました。");
-    } catch (e: any) {
-      setMsg(`保存に失敗: ${String(e?.message || e)}`);
+      const css = splitToMinSec(cssSecTotal);
+      setCssMin(String(css.m));
+      setCssSec(pad2(css.s));
+
+      setMaxHr(String(nextMaxHr));
+      setLthr(String(nextLthr));
+      setFtp(String(nextFtp));
+      setRestingHr(nextRestingHr != null ? String(nextRestingHr) : "");
+
+      setZ1Max(String(nz1));
+      setZ2Max(String(nz2));
+      setZ3Max(String(nz3));
+      setZ4Max(String(nz4));
+      setZ5Max(String(nz5));
+
+      setStatusMsg("Saved!");
+      // 2秒後に消す
+      setTimeout(() => setStatusMsg(null), 2000);
+    } catch (e) {
+      setErrorMsg(`Save failed: ${String(e)}`);
     } finally {
       setSaving(false);
     }
-  }
+  }, [
+    maxHr,
+    lthr,
+    ftp,
+    restingHr,
+    runPaceMin,
+    runPaceSec,
+    cssMin,
+    cssSec,
+    z1Max,
+    z2Max,
+    z3Max,
+    z4Max,
+    z5Max,
+  ]);
 
   if (loading) {
     return (
       <View style={[styles.container, styles.center]}>
         <ActivityIndicator />
-        <Text style={styles.note}>loading...</Text>
+        <Text style={styles.note}>Loading settings…</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.h1}>設定</Text>
-      <Text style={styles.note}>TSS / CTL / ATL / TSB と心拍ゾーン集計に使う個人設定です。</Text>
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <Text style={styles.title}>Settings</Text>
 
-      {!!msg && (
-        <View style={styles.msgBox}>
-          <Text style={styles.msgText}>{msg}</Text>
+        {/* status */}
+        {errorMsg ? (
+          <View style={[styles.banner, styles.bannerError]}>
+            <Text style={styles.bannerText}>{errorMsg}</Text>
+          </View>
+        ) : null}
+        {statusMsg ? (
+          <View style={[styles.banner, styles.bannerOk]}>
+            <Text style={styles.bannerText}>{statusMsg}</Text>
+          </View>
+        ) : null}
+
+        {/* Athlete */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Key metrics</Text>
+
+          <View style={styles.row}>
+            <Field label="FTP (W)" value={ftp} onChangeText={setFtp} />
+            <Field label="LTHR (bpm)" value={lthr} onChangeText={setLthr} />
+          </View>
+
+          <View style={styles.row}>
+            <Field label="MaxHR (bpm)" value={maxHr} onChangeText={setMaxHr} />
+            <Field label="Resting HR (bpm, optional)" value={restingHr} onChangeText={setRestingHr} />
+          </View>
         </View>
-      )}
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>アカウント</Text>
-        <Row label="athleteId" right={athleteId || settings.athleteId || "--"} />
+        {/* Run */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Run</Text>
+
+          <Text style={styles.label}>Threshold pace (/km)</Text>
+          <View style={styles.minSecRow}>
+            <MinSecInput
+              minLabel="min"
+              secLabel="sec"
+              minValue={runPaceMin}
+              secValue={runPaceSec}
+              onMinChange={setRunPaceMin}
+              onSecChange={(v) => setRunPaceSec(v)}
+            />
+            <Text style={styles.preview}>{preview.runPace}</Text>
+          </View>
+        </View>
+
+        {/* Swim */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Swim</Text>
+
+          <Text style={styles.label}>CSS (/100m)</Text>
+          <View style={styles.minSecRow}>
+            <MinSecInput
+              minLabel="min"
+              secLabel="sec"
+              minValue={cssMin}
+              secValue={cssSec}
+              onMinChange={setCssMin}
+              onSecChange={(v) => setCssSec(v)}
+            />
+            <Text style={styles.preview}>{preview.css}</Text>
+          </View>
+        </View>
+
+        {/* HR Zones */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Heart rate zones (bpm)</Text>
+          <Text style={styles.noteSmall}>Z5 max must equal MaxHR.</Text>
+
+          <View style={styles.row}>
+            <Field label="Z1 max" value={z1Max} onChangeText={setZ1Max} />
+            <Field label="Z2 max" value={z2Max} onChangeText={setZ2Max} />
+          </View>
+          <View style={styles.row}>
+            <Field label="Z3 max" value={z3Max} onChangeText={setZ3Max} />
+            <Field label="Z4 max" value={z4Max} onChangeText={setZ4Max} />
+          </View>
+          <View style={styles.row}>
+            <Field label="Z5 max" value={z5Max} onChangeText={setZ5Max} />
+            <View style={{ flex: 1 }} />
+          </View>
+        </View>
+
+        <View style={{ height: 90 }} />
+      </ScrollView>
+
+      {/* bottom save bar */}
+      <View style={styles.bottomBar}>
+        <TouchableOpacity
+          onPress={onSave}
+          disabled={saving}
+          style={[styles.saveBtn, saving ? styles.saveBtnDisabled : null]}
+        >
+          <Text style={styles.saveBtnText}>{saving ? "Saving…" : "Save"}</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.bottomHint}>
+          {Platform.OS === "web"
+            ? "Saved settings persist in browser storage."
+            : "Saved settings persist on device."}
+        </Text>
       </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>心拍（bpm）</Text>
-        <Field label="Max HR" value={maxHrStr} onChange={setMaxHrStr} />
-        <Field label="Rest HR（任意）" value={restHrStr} onChange={setRestHrStr} />
-        <Field label="LTHR（閾値）" value={lthrStr} onChange={setLthrStr} />
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>バイク</Text>
-        <Field label="FTP（W）" value={ftpStr} onChange={setFtpStr} />
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>ラン</Text>
-        <PaceField
-          label="閾値ペース（/km）"
-          mm={runMm}
-          ss={runSs}
-          onChangeMm={setRunMm}
-          onChangeSs={setRunSs}
-          onBlurSs={() => setRunSs((v) => normalizeSs(v))}
-        />
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>スイム</Text>
-        <PaceField
-          label="CSS（/100m）"
-          mm={cssMm}
-          ss={cssSs}
-          onChangeMm={setCssMm}
-          onChangeSs={setCssSs}
-          onBlurSs={() => setCssSs((v) => normalizeSs(v))}
-        />
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>HRゾーン境界（bpm）</Text>
-        <Text style={styles.note}>Z5上限は Max HR と同じ値に固定します。</Text>
-
-        <Field label="Z1 上限" value={z1Str} onChange={setZ1Str} />
-        <Field label="Z2 上限" value={z2Str} onChange={setZ2Str} />
-        <Field label="Z3 上限" value={z3Str} onChange={setZ3Str} />
-        <Field label="Z4 上限" value={z4Str} onChange={setZ4Str} />
-
-        <Row label="Z5 上限" right={digitsOnly(maxHrStr) || "--"} />
-      </View>
-
-      <Pressable onPress={onSave} disabled={saving} style={[styles.saveBtn, saving && { opacity: 0.6 }]}>
-        <Text style={styles.saveBtnText}>{saving ? "保存中..." : "保存する"}</Text>
-      </Pressable>
-
-      <Text style={[styles.note, { marginTop: 10 }]}>
-        platform: {Platform.OS}
-      </Text>
-
-      <View style={{ height: 24 }} />
-    </ScrollView>
-  );
-}
-
-function Row({ label, right }: { label: string; right: string }) {
-  return (
-    <View style={styles.row}>
-      <Text style={styles.label}>{label}</Text>
-      <Text style={styles.value}>{right}</Text>
     </View>
   );
 }
 
-function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+// ---------- small components ----------
+function Field(props: {
+  label: string;
+  value: string;
+  onChangeText: (v: string) => void;
+}) {
   return (
-    <View style={styles.row}>
-      <Text style={styles.label}>{label}</Text>
+    <View style={styles.field}>
+      <Text style={styles.label}>{props.label}</Text>
       <TextInput
         style={styles.input}
-        value={value}
-        onChangeText={(t) => onChange(digitsOnly(t))}
-        keyboardType="number-pad"
+        value={props.value}
+        onChangeText={(t) => props.onChangeText(t.replace(/[^\d]/g, ""))}
+        keyboardType="numeric"
+        placeholder="0"
       />
     </View>
   );
 }
 
-function PaceField({
-  label,
-  mm,
-  ss,
-  onChangeMm,
-  onChangeSs,
-  onBlurSs,
-}: {
-  label: string;
-  mm: string;
-  ss: string;
-  onChangeMm: (v: string) => void;
-  onChangeSs: (v: string) => void;
-  onBlurSs: () => void;
+function MinSecInput(props: {
+  minLabel: string;
+  secLabel: string;
+  minValue: string;
+  secValue: string;
+  onMinChange: (v: string) => void;
+  onSecChange: (v: string) => void;
 }) {
   return (
-    <View style={styles.row}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={styles.paceWrap}>
+    <View style={styles.minSecBox}>
+      <View style={styles.minSecItem}>
+        <Text style={styles.minSecLabel}>{props.minLabel}</Text>
         <TextInput
-          style={[styles.input, styles.pace]}
-          value={mm}
-          onChangeText={(t) => onChangeMm(digitsOnly(t))}
-          keyboardType="number-pad"
+          style={styles.input}
+          value={props.minValue}
+          onChangeText={(t) => props.onMinChange(t.replace(/[^\d]/g, ""))}
+          keyboardType="numeric"
+          placeholder="0"
         />
-        <Text style={styles.paceSep}>:</Text>
+      </View>
+
+      <Text style={styles.colon}>:</Text>
+
+      <View style={styles.minSecItem}>
+        <Text style={styles.minSecLabel}>{props.secLabel}</Text>
         <TextInput
-          style={[styles.input, styles.pace]}
-          value={ss}
-          onChangeText={(t) => onChangeSs(digitsOnly(t))}
-          onBlur={onBlurSs}
-          keyboardType="number-pad"
+          style={styles.input}
+          value={props.secValue}
+          onChangeText={(t) => {
+            const cleaned = t.replace(/[^\d]/g, "");
+            // 入力中も 2桁寄せを優先（ただし空文字は許容）
+            if (cleaned.length === 0) return props.onSecChange("");
+            const n = clampInt(toIntOrNaN(cleaned), 0, 59);
+            props.onSecChange(pad2(n)); // ✅ 常に2桁
+          }}
+          keyboardType="numeric"
+          placeholder="00"
+          maxLength={2}
         />
       </View>
     </View>
   );
 }
 
+// ---------- styles ----------
 const styles = StyleSheet.create({
-  container: { padding: 16 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  container: { flex: 1, backgroundColor: "#fff" },
+  scroll: { padding: 16 },
+  center: { justifyContent: "center", alignItems: "center" },
 
-  h1: { fontSize: 20, fontWeight: "700" },
-  note: { marginTop: 6, color: "#666", fontSize: 12 },
+  title: { fontSize: 22, fontWeight: "700", marginBottom: 12 },
 
-  msgBox: { marginTop: 10, padding: 10, borderRadius: 10, backgroundColor: "#f7f7f7" },
-  msgText: { fontSize: 12, color: "#333" },
+  section: {
+    borderWidth: 1,
+    borderColor: "#eee",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    backgroundColor: "#fafafa",
+  },
+  sectionTitle: { fontSize: 16, fontWeight: "700", marginBottom: 8 },
 
-  card: { backgroundColor: "#fff", borderRadius: 12, padding: 12, marginTop: 12 },
-  cardTitle: { fontSize: 15, fontWeight: "700", marginBottom: 8 },
+  row: { flexDirection: "row", gap: 12 },
+  field: { flex: 1, marginBottom: 10 },
 
-  row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10, gap: 10 },
-  label: { width: 150, color: "#333", fontSize: 13 },
-  value: { color: "#111", fontSize: 13 },
+  label: { fontSize: 12, color: "#333", marginBottom: 6 },
+  note: { marginTop: 8, color: "#666" },
+  noteSmall: { marginTop: -2, marginBottom: 8, color: "#666", fontSize: 12 },
 
   input: {
+    height: 40,
     borderWidth: 1,
-    borderColor: "#e5e5e5",
+    borderColor: "#ddd",
+    backgroundColor: "#fff",
     borderRadius: 10,
-    paddingVertical: 8,
     paddingHorizontal: 10,
-    minWidth: 90,
-    textAlign: "right",
+    fontSize: 16,
   },
 
-  paceWrap: { flexDirection: "row", alignItems: "center" },
-  pace: { minWidth: 60 },
-  paceSep: { paddingHorizontal: 6, color: "#666" },
+  banner: {
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 12,
+  },
+  bannerOk: { backgroundColor: "#e9f6ee", borderWidth: 1, borderColor: "#bfe6cc" },
+  bannerError: { backgroundColor: "#fdecec", borderWidth: 1, borderColor: "#f3b5b5" },
+  bannerText: { color: "#222" },
 
-  saveBtn: { marginTop: 14, backgroundColor: "#111", borderRadius: 12, paddingVertical: 12, alignItems: "center" },
-  saveBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  minSecRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  minSecBox: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
+  minSecItem: { width: 100 },
+  minSecLabel: { fontSize: 12, color: "#333", marginBottom: 6 },
+  colon: { fontSize: 20, fontWeight: "700", paddingBottom: 8, color: "#333" },
+  preview: { color: "#333", fontWeight: "600" },
+
+  bottomBar: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+    backgroundColor: "#fff",
+  },
+  saveBtn: {
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#2563eb",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  saveBtnDisabled: { opacity: 0.6 },
+  saveBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  bottomHint: { marginTop: 8, fontSize: 12, color: "#666", textAlign: "center" },
 });
