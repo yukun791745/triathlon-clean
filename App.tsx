@@ -5,7 +5,6 @@ import { Platform } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 
-// Screens
 import AuthScreen from "./src/screens/AuthScreen";
 import ActivitiesScreen from "./src/screens/ActivitiesScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
@@ -18,9 +17,8 @@ type RootTabParamList = {
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
 export default function App() {
-  // 成功パターン：起動直後はAuth、完了したらTabs（下部ナビ）
   const [signedIn, setSignedIn] = useState(false);
-  const [athleteId, setAthleteId] = useState<string>("34646703"); // Authで上書き
+  const [athleteId, setAthleteId] = useState<string | null>(null);
 
   const navTheme = useMemo(
     () => ({
@@ -37,11 +35,11 @@ export default function App() {
     []
   );
 
-  // 認証ゲートはここ1箇所に固定（重複を排除）
+  // 1) 起動直後は必ず Auth
   if (!signedIn) {
     return (
       <AuthScreen
-        onSignIn={(id) => {
+        onSignedIn={(id: string) => {
           setAthleteId(id);
           setSignedIn(true);
         }}
@@ -49,12 +47,12 @@ export default function App() {
     );
   }
 
+  // 2) サインイン後に Tabs（下部ナビ復活）
   return (
     <NavigationContainer theme={navTheme as any}>
       <Tab.Navigator
         screenOptions={{
           headerShown: true,
-          // webはキーボードでタブを隠さない
           tabBarHideOnKeyboard: Platform.OS !== "web",
         }}
       >
@@ -62,10 +60,11 @@ export default function App() {
           {(props) => (
             <ActivitiesScreen
               {...props}
-              // いまはActivitiesScreen側が userId を固定しているが、
-              // 後で Props 化するならここで渡せる
-              // athleteId={athleteId}
-              onSignOut={() => setSignedIn(false)}
+              athleteId={athleteId ?? "34646703"}
+              onSignOut={() => {
+                setSignedIn(false);
+                setAthleteId(null);
+              }}
             />
           )}
         </Tab.Screen>
