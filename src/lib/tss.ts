@@ -1,5 +1,5 @@
 // src/lib/tss.ts
-import type { UserSettings } from "./settings";
+import type { UserSettings } from "./settings.shared";
 
 export type Sport = "ride" | "run" | "swim" | "other";
 

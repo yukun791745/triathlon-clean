@@ -1,24 +1,17 @@
 // src/lib/settings.ts
-// Cross-platform facade:
-// - Web: uses settings.web.ts
-// - Native: uses settings.native.ts
-//
-// This file exists so imports like "../lib/settings" work consistently,
-// while keeping platform split implementations.
-
 import { Platform } from "react-native";
 
-// Types: both platform files must export identical types.
-// We source the types from .web for TS convenience.
-import type { HrZonesBpm as HrZonesBpmT, UserSettings as UserSettingsT } from "./settings.web";
+export type { HrZonesBpm, UserSettings } from "./settings.shared";
+export { DEFAULT_SETTINGS } from "./settings.shared";
 
-export type HrZonesBpm = HrZonesBpmT;
-export type UserSettings = UserSettingsT;
+type NativeImpl = typeof import("./settings.native");
+type WebImpl = typeof import("./settings.web");
 
-type Impl = typeof import("./settings.web");
+const impl: NativeImpl | WebImpl =
+  Platform.OS === "web" ? require("./settings.web") : require("./settings.native");
 
-const impl: Impl = Platform.OS === "web" ? require("./settings.web") : require("./settings.native");
-
-export const DEFAULT_SETTINGS = impl.DEFAULT_SETTINGS;
-export const loadSettings = impl.loadSettings;
-export const saveSettings = impl.saveSettings;
+export const loadSettings = impl.loadSettings as (athleteId: string) => Promise<import("./settings.shared").UserSettings>;
+export const saveSettings = impl.saveSettings as (
+  athleteId: string,
+  next: import("./settings.shared").UserSettings
+) => Promise<void>;

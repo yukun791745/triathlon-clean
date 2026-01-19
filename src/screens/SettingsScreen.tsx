@@ -12,7 +12,9 @@ import {
 } from "react-native";
 
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, type UserSettings } from "../lib/settings";
-
+type Props = {
+  athleteId: string;
+};
 // ---------- utils ----------
 function clampInt(n: number, min: number, max: number) {
   if (Number.isNaN(n)) return min;
@@ -48,7 +50,8 @@ function formatMinSec(totalSec: number) {
 }
 
 // ---------- component ----------
-export default function SettingsScreen() {
+
+export default function SettingsScreen({ athleteId }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -87,7 +90,7 @@ export default function SettingsScreen() {
         setErrorMsg(null);
         setStatusMsg(null);
 
-        const s = await loadSettings();
+        const s = await loadSettings(athleteId);
 
         if (!mounted) return;
 
@@ -171,7 +174,6 @@ export default function SettingsScreen() {
     }
 
     const next: UserSettings = {
-      athleteId: undefined, // (reserved)
       maxHr: nextMaxHr,
       restingHr: nextRestingHr,
       lthr: nextLthr,
@@ -189,7 +191,7 @@ export default function SettingsScreen() {
 
     try {
       setSaving(true);
-      await saveSettings(next);
+      await saveSettings(athleteId, next);
 
       // ✅ Save後のUI反映（秒2桁に整形）
       const run = splitToMinSec(runSec);

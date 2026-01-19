@@ -1,5 +1,5 @@
 // src/lib/hrZones.ts
-import type { HrZonesBpm } from "./settings";
+import type { HrZonesBpm } from "./settings.shared";
 
 export type HrZoneKey = "z1" | "z2" | "z3" | "z4" | "z5";
 
