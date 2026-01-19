@@ -1,14 +1,11 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, Button, StyleSheet } from "react-native";
 
-/**
- * Minimal AuthScreen
- * - collects Athlete ID then calls onSignIn(athleteId)
- * - EMPTY input is allowed -> fallback to DEFAULT_ATHLETE_ID
- */
 type Props = {
   onSignedIn: (athleteId: string) => void;
 };
+
+const DEFAULT_ATHLETE_ID = "34646703";
 
 export default function AuthScreen({ onSignedIn }: Props) {
   const [athleteId, setAthleteId] = useState("");
@@ -20,16 +17,16 @@ export default function AuthScreen({ onSignedIn }: Props) {
     console.log("[AuthScreen] continue with athleteId =", idToUse);
     onSignedIn(idToUse);
   }
-}
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Sign In (Minimal) [AUTHSCREEN OK]</Text>
+      <Text style={styles.title}>Sign In</Text>
 
       <Text style={styles.label}>Athlete ID (temporary)</Text>
       <TextInput
         value={athleteId}
         onChangeText={setAthleteId}
-        placeholder={`e.g. ${DEFAULT_ATHLETE_ID}`}
+        placeholder={DEFAULT_ATHLETE_ID}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="numeric"
@@ -37,10 +34,6 @@ export default function AuthScreen({ onSignedIn }: Props) {
       />
 
       <Button title="Continue" onPress={handleContinue} />
-
-      <Text style={styles.note}>
-        If left empty, a default Athlete ID will be used.
-      </Text>
     </View>
   );
 }
@@ -48,29 +41,23 @@ export default function AuthScreen({ onSignedIn }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    padding: 24,
     justifyContent: "center",
   },
   title: {
     fontSize: 20,
     fontWeight: "600",
     marginBottom: 16,
+    textAlign: "center",
   },
   label: {
-    fontSize: 14,
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
     borderColor: "#ccc",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
+    padding: 8,
     marginBottom: 16,
-  },
-  note: {
-    marginTop: 12,
-    color: "#666",
-    fontSize: 12,
+    borderRadius: 4,
   },
 });
