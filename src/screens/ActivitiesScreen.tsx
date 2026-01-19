@@ -1,14 +1,6 @@
 // src/screens/ActivitiesScreen.tsx
 import React, { useCallback, useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  Button,
-  FlatList,
-  ActivityIndicator,
-  StyleSheet,
-  Alert,
-} from "react-native";
+import { View, Text, Button, FlatList, ActivityIndicator, StyleSheet, Alert } from "react-native";
 import { supabase } from "../lib/supabaseClient";
 
 const GET_ACTIVITIES_BASE =
@@ -45,11 +37,7 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
       const url = `${GET_ACTIVITIES_BASE}?userId=${encodeURIComponent(userId)}&per_page=${perPage}`;
       console.log("[ActivitiesScreen] fetching:", url);
 
-      const res = await fetch(url, {
-        method: "GET",
-        headers: { Accept: "application/json" },
-      });
-
+      const res = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
       const text = await res.text();
       console.log("[ActivitiesScreen] raw200:", text.slice(0, 200));
 
@@ -58,9 +46,7 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
         try {
           const j = JSON.parse(text);
           msg = j?.error ? `${msg}: ${j.error}` : msg;
-        } catch {
-          // ignore
-        }
+        } catch {}
         setError(msg);
         console.error("[ActivitiesScreen] non-OK:", res.status, text);
         return;
@@ -75,7 +61,6 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
         return;
       }
 
-      // ✅ Netlify function が配列を直接返すパターンと { activities: [...] } の両対応
       const list: ActivityItem[] = Array.isArray(json)
         ? json
         : Array.isArray(json?.activities)
@@ -100,10 +85,9 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
     try {
       console.log("[ActivitiesScreen] signOut pressed");
 
-      // TS の絞り込みを確実にするためローカル変数へ落とす
+      // 重要: ローカル変数へ落とすことで TS が null を完全に排除できる
       const client = supabase;
       if (!client) {
-        // Supabase未設定でも画面遷移だけはできるようにする
         onSignOut?.();
         return;
       }
@@ -144,9 +128,7 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
 
       <View style={styles.card}>
         <View style={styles.row}>
-          <Text style={styles.count}>
-            {activities ? `${activities.length} activities` : "Activities"}
-          </Text>
+          <Text style={styles.count}>{activities ? `${activities.length} activities` : "Activities"}</Text>
 
           <View style={styles.rowButtons}>
             <Button title="Refresh" onPress={fetchActivities} />
