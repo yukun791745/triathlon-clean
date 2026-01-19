@@ -1,4 +1,3 @@
-cat > app.json <<'JSON'
 {
   "expo": {
     "name": "triathlon-clean",
@@ -26,7 +25,9 @@ cat > app.json <<'JSON'
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
   }
 }
-JSON
