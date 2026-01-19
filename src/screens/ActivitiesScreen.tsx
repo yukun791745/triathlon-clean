@@ -90,7 +90,6 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
     Alert.alert("Sign out failed", String(e));
   }
 }, [onSignOut]);
-
   function renderItem({ item }: { item: any }) {
     const name = item?.name || item?.type || "Activity";
     const start = item?.start_date_local || item?.start_date || item?.start;
