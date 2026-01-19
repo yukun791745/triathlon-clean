@@ -28,6 +28,7 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
 
       const res = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
       const text = await res.text();
+      console.log("[ActivitiesScreen] raw:", text.slice(0, 200));
 
       if (!res.ok) {
         let msg = `HTTP ${res.status}`;
