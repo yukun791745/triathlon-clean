@@ -16,7 +16,7 @@ const Tab = createBottomTabNavigator<RootTabParamList>();
 
 export default function App() {
   const [signedIn, setSignedIn] = useState(false);
-  const [athleteId, setAthleteId] = useState<string>("34646703"); // 仮
+  const [athleteId, setAthleteId] = useState<string>("34646703"); // デフォルト（AuthScreen側の挙動に合わせて後で整理可）
 
   const navTheme = useMemo(() => {
     return {
@@ -30,7 +30,6 @@ export default function App() {
         border: "#e5e7eb",
         notification: "#2563eb",
       },
-      // ★ DefaultTheme に fonts が含まれるため HeaderTitle が落ちない
     };
   }, []);
 
@@ -54,7 +53,7 @@ export default function App() {
         }}
       >
         <Tab.Screen name="Activities" options={{ title: "Activities" }}>
-          {() => <ActivitiesScreen onSignOut={() => setSignedIn(false)} />}
+          {() => <ActivitiesScreen athleteId={athleteId} onSignOut={() => setSignedIn(false)} />}
         </Tab.Screen>
 
         <Tab.Screen name="Settings" options={{ title: "Settings" }}>

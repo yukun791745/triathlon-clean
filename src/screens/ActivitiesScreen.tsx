@@ -1,39 +1,34 @@
-// src/screens/ActivitiesScreen.tsx
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, Button, FlatList, ActivityIndicator, StyleSheet, Alert } from "react-native";
-import { supabase } from "../lib/supabaseClient";
+import { View, Text, Button, FlatList, ActivityIndicator, StyleSheet } from "react-native";
 
 const GET_ACTIVITIES_BASE =
   (typeof process !== "undefined" && (process.env as any).EXPO_PUBLIC_GET_ACTIVITIES_URL) ||
   "https://storied-donut-fd8311.netlify.app/.netlify/functions/get-activities";
 
 type Props = {
+  athleteId: string;
   onSignOut?: () => void;
 };
 
-type ActivityItem = {
-  id?: number | string;
-  name?: string;
-  type?: string;
-  sport_type?: string;
-  start_date_local?: string;
-  start_date?: string;
-  start?: string;
-};
-
-export default function ActivitiesScreen({ onSignOut }: Props) {
-  const [activities, setActivities] = useState<ActivityItem[] | null>(null);
+export default function ActivitiesScreen({ athleteId, onSignOut }: Props) {
+  const [activities, setActivities] = useState<any[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const perPage = 30;
-  const userId = "34646703"; // TODO: make dynamic later
 
   const fetchActivities = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
+      const userId = (athleteId || "").trim();
+      if (!userId) {
+        setActivities([]);
+        setError("athleteId is empty");
+        return;
+      }
+
       const url = `${GET_ACTIVITIES_BASE}?userId=${encodeURIComponent(userId)}&per_page=${perPage}`;
       console.log("[ActivitiesScreen] fetching:", url);
 
@@ -61,12 +56,8 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
         return;
       }
 
-      const list: ActivityItem[] = Array.isArray(json)
-        ? json
-        : Array.isArray(json?.activities)
-        ? json.activities
-        : [];
-
+      // Netlify function が配列を直接返すパターンと { activities:[...] } の両対応
+      const list = Array.isArray(json) ? json : Array.isArray(json?.activities) ? json.activities : [];
       setActivities(list);
       console.log("[ActivitiesScreen] activities:", list.length);
     } catch (e) {
@@ -75,42 +66,21 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [athleteId]);
 
   useEffect(() => {
     fetchActivities();
   }, [fetchActivities]);
 
-  const signOut = useCallback(async () => {
-    try {
-      console.log("[ActivitiesScreen] signOut pressed");
-
-      const client = supabase;
-      if (!client) {
-        onSignOut?.();
-        return;
-      }
-
-      const { error: signOutError } = await client.auth.signOut();
-      if (signOutError) {
-        console.error("[ActivitiesScreen] signOut error:", signOutError);
-        Alert.alert("Sign out failed", signOutError.message);
-        return;
-      }
-
-      onSignOut?.();
-      console.log("[ActivitiesScreen] signed out OK");
-    } catch (e) {
-      console.error("[ActivitiesScreen] signOut exception:", e);
-      Alert.alert("Sign out failed", String(e));
-    }
+  const signOut = useCallback(() => {
+    // 安定優先：現時点では Supabase auth には触らない（後で統合）
+    onSignOut?.();
   }, [onSignOut]);
 
-  const renderItem = useCallback(({ item }: { item: ActivityItem }) => {
+  function renderItem({ item }: { item: any }) {
     const name = item?.name || item?.type || "Activity";
     const start = item?.start_date_local || item?.start_date || item?.start;
     const sport = item?.sport_type || item?.type;
-
     return (
       <View style={styles.item}>
         <Text style={styles.title}>
@@ -119,7 +89,7 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
         {start ? <Text style={styles.sub}>{start}</Text> : null}
       </View>
     );
-  }, []);
+  }
 
   return (
     <View style={styles.container}>
@@ -146,11 +116,7 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
         ) : error ? (
           <Text style={styles.error}>{error}</Text>
         ) : activities && activities.length > 0 ? (
-          <FlatList
-            data={activities}
-            keyExtractor={(item, idx) => String(item?.id ?? `row-${idx}`)}
-            renderItem={renderItem}
-          />
+          <FlatList data={activities} keyExtractor={(it) => String(it?.id ?? Math.random())} renderItem={renderItem} />
         ) : (
           <Text style={styles.note}>No activities found.</Text>
         )}
