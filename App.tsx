@@ -32,6 +32,18 @@ export default function App() {
    * まずは「AuthScreen から onSignedIn を呼んだら Tabs に遷移」する設計に固定します。
    */
   const [signedIn, setSignedIn] = useState(false);
+const [athleteId, setAthleteId] = useState<string | null>(null);
+
+if (!signedIn) {
+  return (
+    <AuthScreen
+      onSignedIn={(id) => {
+        setAthleteId(id);
+        setSignedIn(true);
+      }}
+    />
+  );
+}
 
   const navTheme = useMemo(
     () => ({
