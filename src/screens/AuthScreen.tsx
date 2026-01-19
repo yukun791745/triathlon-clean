@@ -7,12 +7,10 @@ import { View, Text, TextInput, Button, StyleSheet } from "react-native";
  * - EMPTY input is allowed -> fallback to DEFAULT_ATHLETE_ID
  */
 type Props = {
-  onSignIn: (athleteId: string) => void;
+  onSignedIn: (athleteId: string) => void;
 };
 
-const DEFAULT_ATHLETE_ID = "34646703";
-
-export default function AuthScreen({ onSignIn }: Props) {
+export default function AuthScreen({ onSignedIn }: Props) {
   const [athleteId, setAthleteId] = useState("");
 
   function handleContinue() {
@@ -20,9 +18,9 @@ export default function AuthScreen({ onSignIn }: Props) {
     const idToUse = trimmed.length > 0 ? trimmed : DEFAULT_ATHLETE_ID;
 
     console.log("[AuthScreen] continue with athleteId =", idToUse);
-    onSignIn(idToUse);
+    onSignedIn(idToUse);
   }
-
+}
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Sign In (Minimal) [AUTHSCREEN OK]</Text>
