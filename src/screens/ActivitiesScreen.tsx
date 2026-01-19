@@ -67,21 +67,29 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
   }, [fetchActivities]);
 
   const signOut = useCallback(async () => {
-    try {
-      console.log("[ActivitiesScreen] signOut pressed");
-      const { error: signOutError } = await supabase.auth.signOut();
-      if (signOutError) {
-        console.error("[ActivitiesScreen] signOut error:", signOutError);
-        Alert.alert("Sign out failed", signOutError.message);
-        return;
-      }
+  try {
+    console.log("[ActivitiesScreen] signOut pressed");
+
+    if (!supabase) {
+      // Supabase未設定でも画面遷移だけはできるようにする
       onSignOut?.();
-      console.log("[ActivitiesScreen] signed out OK");
-    } catch (e) {
-      console.error("[ActivitiesScreen] signOut exception:", e);
-      Alert.alert("Sign out failed", String(e));
+      return;
     }
-  }, [onSignOut]);
+
+    const { error: signOutError } = await supabase.auth.signOut();
+    if (signOutError) {
+      console.error("[ActivitiesScreen] signOut error:", signOutError);
+      Alert.alert("Sign out failed", signOutError.message);
+      return;
+    }
+
+    onSignOut?.();
+    console.log("[ActivitiesScreen] signed out OK");
+  } catch (e) {
+    console.error("[ActivitiesScreen] signOut exception:", e);
+    Alert.alert("Sign out failed", String(e));
+  }
+}, [onSignOut]);
 
   function renderItem({ item }: { item: any }) {
     const name = item?.name || item?.type || "Activity";
