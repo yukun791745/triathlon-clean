@@ -1,5 +1,14 @@
+// src/screens/ActivitiesScreen.tsx
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, Button, FlatList, ActivityIndicator, StyleSheet, Alert } from "react-native";
+import {
+  View,
+  Text,
+  Button,
+  FlatList,
+  ActivityIndicator,
+  StyleSheet,
+  Alert,
+} from "react-native";
 import { supabase } from "../lib/supabaseClient";
 
 const GET_ACTIVITIES_BASE =
@@ -10,8 +19,18 @@ type Props = {
   onSignOut?: () => void;
 };
 
+type ActivityItem = {
+  id?: number | string;
+  name?: string;
+  type?: string;
+  sport_type?: string;
+  start_date_local?: string;
+  start_date?: string;
+  start?: string;
+};
+
 export default function ActivitiesScreen({ onSignOut }: Props) {
-  const [activities, setActivities] = useState<any[] | null>(null);
+  const [activities, setActivities] = useState<ActivityItem[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,16 +45,22 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
       const url = `${GET_ACTIVITIES_BASE}?userId=${encodeURIComponent(userId)}&per_page=${perPage}`;
       console.log("[ActivitiesScreen] fetching:", url);
 
-      const res = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
+      const res = await fetch(url, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      });
+
       const text = await res.text();
-      console.log("[ActivitiesScreen] raw:", text.slice(0, 200));
+      console.log("[ActivitiesScreen] raw200:", text.slice(0, 200));
 
       if (!res.ok) {
         let msg = `HTTP ${res.status}`;
         try {
           const j = JSON.parse(text);
           msg = j?.error ? `${msg}: ${j.error}` : msg;
-        } catch {}
+        } catch {
+          // ignore
+        }
         setError(msg);
         console.error("[ActivitiesScreen] non-OK:", res.status, text);
         return;
@@ -50,8 +75,13 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
         return;
       }
 
-      // ✅ Netlify function が配列を直接返すパターンと {activities:[...]} の両対応
-      const list = Array.isArray(json) ? json : Array.isArray(json?.activities) ? json.activities : [];
+      // ✅ Netlify function が配列を直接返すパターンと { activities: [...] } の両対応
+      const list: ActivityItem[] = Array.isArray(json)
+        ? json
+        : Array.isArray(json?.activities)
+        ? json.activities
+        : [];
+
       setActivities(list);
       console.log("[ActivitiesScreen] activities:", list.length);
     } catch (e) {
@@ -67,33 +97,37 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
   }, [fetchActivities]);
 
   const signOut = useCallback(async () => {
-  try {
-    console.log("[ActivitiesScreen] signOut pressed");
+    try {
+      console.log("[ActivitiesScreen] signOut pressed");
 
-    if (!supabase) {
-      // Supabase未設定でも画面遷移だけはできるようにする
+      // TS の絞り込みを確実にするためローカル変数へ落とす
+      const client = supabase;
+      if (!client) {
+        // Supabase未設定でも画面遷移だけはできるようにする
+        onSignOut?.();
+        return;
+      }
+
+      const { error: signOutError } = await client.auth.signOut();
+      if (signOutError) {
+        console.error("[ActivitiesScreen] signOut error:", signOutError);
+        Alert.alert("Sign out failed", signOutError.message);
+        return;
+      }
+
       onSignOut?.();
-      return;
+      console.log("[ActivitiesScreen] signed out OK");
+    } catch (e) {
+      console.error("[ActivitiesScreen] signOut exception:", e);
+      Alert.alert("Sign out failed", String(e));
     }
+  }, [onSignOut]);
 
-    const { error: signOutError } = await supabase.auth.signOut();
-    if (signOutError) {
-      console.error("[ActivitiesScreen] signOut error:", signOutError);
-      Alert.alert("Sign out failed", signOutError.message);
-      return;
-    }
-
-    onSignOut?.();
-    console.log("[ActivitiesScreen] signed out OK");
-  } catch (e) {
-    console.error("[ActivitiesScreen] signOut exception:", e);
-    Alert.alert("Sign out failed", String(e));
-  }
-}, [onSignOut]);
-  function renderItem({ item }: { item: any }) {
+  const renderItem = useCallback(({ item }: { item: ActivityItem }) => {
     const name = item?.name || item?.type || "Activity";
     const start = item?.start_date_local || item?.start_date || item?.start;
     const sport = item?.sport_type || item?.type;
+
     return (
       <View style={styles.item}>
         <Text style={styles.title}>
@@ -102,7 +136,7 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
         {start ? <Text style={styles.sub}>{start}</Text> : null}
       </View>
     );
-  }
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -110,7 +144,9 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
 
       <View style={styles.card}>
         <View style={styles.row}>
-          <Text style={styles.count}>{activities ? `${activities.length} activities` : "Activities"}</Text>
+          <Text style={styles.count}>
+            {activities ? `${activities.length} activities` : "Activities"}
+          </Text>
 
           <View style={styles.rowButtons}>
             <Button title="Refresh" onPress={fetchActivities} />
@@ -129,7 +165,11 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
         ) : error ? (
           <Text style={styles.error}>{error}</Text>
         ) : activities && activities.length > 0 ? (
-          <FlatList data={activities} keyExtractor={(item) => String(item?.id ?? Math.random())} renderItem={renderItem} />
+          <FlatList
+            data={activities}
+            keyExtractor={(item, idx) => String(item?.id ?? `row-${idx}`)}
+            renderItem={renderItem}
+          />
         ) : (
           <Text style={styles.note}>No activities found.</Text>
         )}
