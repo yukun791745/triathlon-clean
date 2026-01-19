@@ -5,45 +5,22 @@ import { Platform } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 
-// Screens（存在している前提）
+// Screens
 import AuthScreen from "./src/screens/AuthScreen";
 import ActivitiesScreen from "./src/screens/ActivitiesScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
 
-// もし Fitness/Training など他のタブがあるなら後で追加でOK
-// import TrainingScreen from "./src/screens/TrainingScreen";
-// import FitnessDetailScreen from "./src/screens/FitnessDetailScreen";
-
 type RootTabParamList = {
   Activities: undefined;
   Settings: undefined;
-  // Training: undefined;
 };
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
 export default function App() {
-  /**
-   * 成功パターンの要件:
-   * - 起動直後は AuthScreen（Sign In）
-   * - Sign In 成功後に Tabs 表示（下部ナビ復活）
-   *
-   * 現状は Supabase 認証が安定していない可能性があるので、
-   * まずは「AuthScreen から onSignedIn を呼んだら Tabs に遷移」する設計に固定します。
-   */
+  // 成功パターン：起動直後はAuth、完了したらTabs（下部ナビ）
   const [signedIn, setSignedIn] = useState(false);
-const [athleteId, setAthleteId] = useState<string | null>(null);
-
-if (!signedIn) {
-  return (
-    <AuthScreen
-      onSignedIn={(id) => {
-        setAthleteId(id);
-        setSignedIn(true);
-      }}
-    />
-  );
-}
+  const [athleteId, setAthleteId] = useState<string>("34646703"); // Authで上書き
 
   const navTheme = useMemo(
     () => ({
@@ -60,12 +37,14 @@ if (!signedIn) {
     []
   );
 
-  // Auth が出ることを最優先（ここがあなたの「成功パターン」）
+  // 認証ゲートはここ1箇所に固定（重複を排除）
   if (!signedIn) {
     return (
       <AuthScreen
-        onSignedIn={() => setSignedIn(true)}
-        // 必要なら初期状態で web だけ自動サインイン等も後でやれる
+        onSignIn={(id) => {
+          setAthleteId(id);
+          setSignedIn(true);
+        }}
       />
     );
   }
@@ -75,16 +54,17 @@ if (!signedIn) {
       <Tab.Navigator
         screenOptions={{
           headerShown: true,
+          // webはキーボードでタブを隠さない
           tabBarHideOnKeyboard: Platform.OS !== "web",
         }}
       >
-        <Tab.Screen
-          name="Activities"
-          options={{ title: "Activities" }}
-        >
+        <Tab.Screen name="Activities" options={{ title: "Activities" }}>
           {(props) => (
             <ActivitiesScreen
               {...props}
+              // いまはActivitiesScreen側が userId を固定しているが、
+              // 後で Props 化するならここで渡せる
+              // athleteId={athleteId}
               onSignOut={() => setSignedIn(false)}
             />
           )}
