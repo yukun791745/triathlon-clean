@@ -4,3 +4,8 @@
     "strict": true
   }
 }
+{
+  "compilerOptions": {
+    "moduleSuffixes": [".native", ".web", ""]
+  }
+}
