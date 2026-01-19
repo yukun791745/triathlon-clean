@@ -1,4 +1,6 @@
-// App.tsx
+cd /Users/yujirotsutsumi/Desktop/triathlon-clean
+
+cat > App.tsx <<'TS'
 import React, { useMemo, useState } from "react";
 import { Platform } from "react-native";
 
@@ -18,7 +20,7 @@ const Tab = createBottomTabNavigator<RootTabParamList>();
 
 export default function App() {
   const [signedIn, setSignedIn] = useState(false);
-  const [athleteId, setAthleteId] = useState<string | null>(null);
+  const [athleteId, setAthleteId] = useState<string>("34646703"); // まず固定（成功優先）
 
   const navTheme = useMemo(
     () => ({
@@ -35,19 +37,18 @@ export default function App() {
     []
   );
 
-  // 1) 起動直後は必ず Auth
+  // 起動直後は必ず Sign In（成功パターン）
   if (!signedIn) {
     return (
       <AuthScreen
-        onSignedIn={(id: string) => {
-          setAthleteId(id);
+        onSignIn={(id: string) => {
+          setAthleteId(id || "34646703");
           setSignedIn(true);
         }}
       />
     );
   }
 
-  // 2) サインイン後に Tabs（下部ナビ復活）
   return (
     <NavigationContainer theme={navTheme as any}>
       <Tab.Navigator
@@ -57,14 +58,10 @@ export default function App() {
         }}
       >
         <Tab.Screen name="Activities" options={{ title: "Activities" }}>
-          {(props) => (
+          {() => (
             <ActivitiesScreen
-              {...props}
-              athleteId={athleteId ?? "34646703"}
-              onSignOut={() => {
-                setSignedIn(false);
-                setAthleteId(null);
-              }}
+              // ここは今の ActivitiesScreen 実装に合わせて props を渡さない（内部で固定ID/URLを使っている）
+              onSignOut={() => setSignedIn(false)}
             />
           )}
         </Tab.Screen>
@@ -78,3 +75,4 @@ export default function App() {
     </NavigationContainer>
   );
 }
+TS
