@@ -2,13 +2,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import { View, Text, Button, FlatList, ActivityIndicator, StyleSheet, Alert } from "react-native";
 import { supabase } from "../lib/supabaseClient";
 
-/**
- * ActivitiesScreen (NO navigation dependency)
- * - Fetches activities from Netlify function
- * - Shows a list
- * - Sign Out: calls supabase.auth.signOut() then calls onSignOut (parent can switch screen)
- */
-
 const GET_ACTIVITIES_BASE =
   (typeof process !== "undefined" && (process.env as any).EXPO_PUBLIC_GET_ACTIVITIES_URL) ||
   "https://storied-donut-fd8311.netlify.app/.netlify/functions/get-activities";
@@ -37,7 +30,6 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
       const text = await res.text();
 
       if (!res.ok) {
-        // Try to show a helpful error message
         let msg = `HTTP ${res.status}`;
         try {
           const j = JSON.parse(text);
@@ -48,14 +40,19 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
         return;
       }
 
+      let json: any;
       try {
-        const json = JSON.parse(text);
-        const list = Array.isArray(json?.activities) ? json.activities : [];
-        setActivities(list);
+        json = JSON.parse(text);
       } catch (e) {
         setError("Invalid JSON response");
         console.error("[ActivitiesScreen] JSON parse error:", e, "raw:", text.slice(0, 400));
+        return;
       }
+
+      // ✅ Netlify function が配列を直接返すパターンと {activities:[...]} の両対応
+      const list = Array.isArray(json) ? json : Array.isArray(json?.activities) ? json.activities : [];
+      setActivities(list);
+      console.log("[ActivitiesScreen] activities:", list.length);
     } catch (e) {
       setError(String(e));
       console.error("[ActivitiesScreen] fetch error:", e);
@@ -71,15 +68,12 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
   const signOut = useCallback(async () => {
     try {
       console.log("[ActivitiesScreen] signOut pressed");
-
       const { error: signOutError } = await supabase.auth.signOut();
       if (signOutError) {
         console.error("[ActivitiesScreen] signOut error:", signOutError);
         Alert.alert("Sign out failed", signOutError.message);
         return;
       }
-
-      // Parent router (App.tsx) should flip signed-in state
       onSignOut?.();
       console.log("[ActivitiesScreen] signed out OK");
     } catch (e) {
@@ -91,9 +85,12 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
   function renderItem({ item }: { item: any }) {
     const name = item?.name || item?.type || "Activity";
     const start = item?.start_date_local || item?.start_date || item?.start;
+    const sport = item?.sport_type || item?.type;
     return (
       <View style={styles.item}>
-        <Text style={styles.title}>{name}</Text>
+        <Text style={styles.title}>
+          {name} {sport ? `(${sport})` : ""}
+        </Text>
         {start ? <Text style={styles.sub}>{start}</Text> : null}
       </View>
     );
@@ -105,9 +102,7 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
 
       <View style={styles.card}>
         <View style={styles.row}>
-          <Text style={styles.count}>
-            {activities ? `${activities.length} activities` : "Activities"}
-          </Text>
+          <Text style={styles.count}>{activities ? `${activities.length} activities` : "Activities"}</Text>
 
           <View style={styles.rowButtons}>
             <Button title="Refresh" onPress={fetchActivities} />
@@ -119,17 +114,16 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
         <View style={{ height: 12 }} />
 
         {loading ? (
-          <ActivityIndicator />
+          <View style={styles.center}>
+            <ActivityIndicator />
+            <Text style={styles.note}>Loading...</Text>
+          </View>
         ) : error ? (
-          <Text style={{ color: "red" }}>Error: {error}</Text>
+          <Text style={styles.error}>{error}</Text>
         ) : activities && activities.length > 0 ? (
-          <FlatList
-            data={activities}
-            keyExtractor={(it, i) => (it?.id ? String(it.id) : String(i))}
-            renderItem={renderItem}
-          />
+          <FlatList data={activities} keyExtractor={(item) => String(item?.id ?? Math.random())} renderItem={renderItem} />
         ) : (
-          <Text>No activities found.</Text>
+          <Text style={styles.note}>No activities found.</Text>
         )}
       </View>
     </View>
@@ -137,13 +131,16 @@ export default function ActivitiesScreen({ onSignOut }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, flex: 1, backgroundColor: "#fff" },
-  header: { fontSize: 20, fontWeight: "700" },
-  card: { marginTop: 12, backgroundColor: "#fff", padding: 12, borderRadius: 12, minHeight: 200 },
-  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  container: { padding: 16, flex: 1 },
+  header: { fontSize: 18, fontWeight: "700", marginBottom: 12 },
+  card: { backgroundColor: "#fff", borderRadius: 12, padding: 12, flex: 1 },
+  row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   rowButtons: { flexDirection: "row", alignItems: "center" },
   count: { fontWeight: "700" },
-  item: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#eee" },
-  title: { fontSize: 16, fontWeight: "600" },
-  sub: { color: "#666", marginTop: 2 },
+  center: { alignItems: "center", justifyContent: "center", paddingVertical: 16 },
+  note: { color: "#666", marginTop: 6 },
+  error: { color: "crimson" },
+  item: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#eee" },
+  title: { fontWeight: "600" },
+  sub: { color: "#666", marginTop: 4, fontSize: 12 },
 });
